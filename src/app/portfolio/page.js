@@ -1,0 +1,383 @@
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { ethers } from 'ethers';
+import toast from 'react-hot-toast';
+import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FACTORY_ADDRESS } from '@/lib/constants';
+import { useNetwork } from '@/lib/useNetwork';
+import { fmtEth, truncAddr } from '@/lib/fmt';
+import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
+
+const STATE_LABELS = {
+  0: { text: 'FUNDING',    color: 'text-blue-400',    dot: 'bg-blue-500 animate-pulse', border: 'border-blue-500/20' },
+  1: { text: 'FAILED',     color: 'text-red-400',     dot: 'bg-red-500',                border: 'border-red-500/20' },
+  2: { text: 'PREPARING',  color: 'text-amber-400',   dot: 'bg-amber-500',              border: 'border-amber-500/20' },
+  3: { text: 'DEX LIVE',   color: 'text-emerald-400', dot: 'bg-emerald-500',            border: 'border-emerald-500/20' },
+};
+
+export default function PortfolioPage() {
+  const [account, setAccount] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [actionAddr, setActionAddr] = useState(null);
+
+  const { isCorrectChain } = useNetwork();
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.ethereum) return;
+    window.ethereum.request({ method: 'eth_accounts' }).then(accs => {
+      if (accs[0]) setAccount(accs[0]);
+    }).catch(() => {});
+    const handler = (accs) => setAccount(accs.length > 0 ? accs[0] : '');
+    window.ethereum.on('accountsChanged', handler);
+    return () => window.ethereum.removeListener('accountsChanged', handler);
+  }, []);
+
+  const connectWallet = async () => {
+    if (typeof window === 'undefined' || !window.ethereum) return toast.error('Please install MetaMask');
+    try {
+      await window.ethereum.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (accounts[0]) {
+        setAccount(accounts[0]);
+        localStorage.setItem('isWalletConnected', 'true');
+      }
+    } catch { toast.error('Wallet connection failed'); }
+  };
+
+  const loadPortfolio = useCallback(async () => {
+    if (!account || typeof window === 'undefined' || !window.ethereum) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
+      const addresses = await factory.getAllProjects();
+
+      let launchWindowSec = 30 * 86400;
+      let preLaunchNoticeSec = 21600;
+      let launchExpirationSec = 86400;
+      if (addresses.length > 0) {
+        try {
+          const probe = new ethers.Contract(addresses[0], FUND_ABI, provider);
+          const [lw, pln, lex] = await Promise.all([
+            probe.LAUNCH_WINDOW(),
+            probe.PRE_LAUNCH_NOTICE().catch(() => ethers.BigNumber.from(21600)),
+            probe.LAUNCH_EXPIRATION().catch(() => ethers.BigNumber.from(86400)),
+          ]);
+          launchWindowSec = Number(lw);
+          preLaunchNoticeSec = Number(pln);
+          launchExpirationSec = Number(lex);
+        } catch {}
+      }
+
+      const results = await Promise.all(
+        addresses.map(async (addr) => {
+          try {
+            const fund = new ethers.Contract(addr, FUND_ABI, provider);
+            const [tokenAddr, owner, raised, softCap, endTime, state, contrib, finalized, announceTime] = await Promise.all([
+              fund.projectToken(),
+              fund.projectOwner(),
+              fund.totalRaised(),
+              fund.SOFT_CAP(),
+              fund.raiseEndTime(),
+              fund.currentState(),
+              fund.contributions(account),
+              fund.isFinalized().catch(() => false),
+              fund.launchAnnouncementTime().catch(() => ethers.BigNumber.from(0)),
+            ]);
+
+            const contribEth = Number(ethers.utils.formatEther(contrib));
+            const isOwner = owner.toLowerCase() === account.toLowerCase();
+            if (contribEth <= 0 && !isOwner) return null;
+
+            const token = new ethers.Contract(tokenAddr, TOKEN_ABI, provider);
+            const [name, symbol] = await Promise.all([token.name(), token.symbol()]);
+
+            const endSec = Number(endTime);
+            const stateNum = Number(state);
+            const raisedEth = Number(ethers.utils.formatEther(raised));
+            const capEth = Number(ethers.utils.formatEther(softCap));
+            const launchDeadlineMs = (endSec + launchWindowSec) * 1000;
+            const isExpired = stateNum === 2 && Date.now() > launchDeadlineMs;
+            const announceSec = Number(announceTime);
+            const noticeEndMs = announceSec > 0 ? (announceSec + preLaunchNoticeSec) * 1000 : 0;
+            const launchExpirationMs = announceSec > 0 ? (announceSec + preLaunchNoticeSec + launchExpirationSec) * 1000 : 0;
+            const noticeHasElapsed = announceSec > 0 && Date.now() >= noticeEndMs;
+            const isLaunchExpired = announceSec > 0 && noticeHasElapsed && launchExpirationMs > 0 && Date.now() > launchExpirationMs;
+
+            return {
+              address: addr,
+              name, symbol,
+              state: stateNum,
+              contribution: contribEth,
+              raised: raisedEth,
+              softCap: capEth,
+              progress: capEth > 0 ? Math.min((raisedEth / capEth) * 100, 100) : 0,
+              isOwner,
+              isFinalized: finalized,
+              isExpired,
+              launchDeadlineMs,
+              isAnnounced: announceSec > 0,
+              noticeElapsed: noticeHasElapsed,
+              isLaunchExpired,
+            };
+          } catch { return null; }
+        })
+      );
+      setProjects(results.filter(Boolean));
+    } catch (err) {
+      console.error('Portfolio load failed:', err);
+      setError('Failed to load agent data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [account]);
+
+  useEffect(() => { loadPortfolio(); }, [loadPortfolio]);
+
+  const handleClaimTokens = async (addr) => {
+    if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
+    setActionAddr(addr);
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const fund = new ethers.Contract(addr, FUND_ABI, signer);
+      const tx = await fund.claimTokens({ gasLimit: 300_000 });
+      toast('Claiming tokens...', { icon: '\u23F3' });
+      await tx.wait();
+      toast.success('Agent tokens claimed!');
+      loadPortfolio();
+    } catch (err) {
+      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
+      else toast.error('Claim failed: ' + (err?.reason || err?.message || 'Unknown'));
+    } finally { setActionAddr(null); }
+  };
+
+  const handleClaimRefund = async (addr) => {
+    if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
+    setActionAddr(addr);
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const fund = new ethers.Contract(addr, FUND_ABI, signer);
+      const tx = await fund.claimRefund({ gasLimit: 300_000 });
+      toast('Processing refund...', { icon: '\u23F3' });
+      await tx.wait();
+      toast.success('Refund claimed!');
+      loadPortfolio();
+    } catch (err) {
+      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
+      else toast.error('Refund failed: ' + (err?.reason || err?.message || 'Unknown'));
+    } finally { setActionAddr(null); }
+  };
+
+  const handleAnnounce = async (addr) => {
+    if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
+    setActionAddr(addr);
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const fund = new ethers.Contract(addr, FUND_ABI, signer);
+      const tx = await fund.announceLaunch({ gasLimit: 200_000 });
+      toast('Initiating deployment notice...', { icon: '\u23F3' });
+      await tx.wait();
+      toast.success('Deployment notice initiated! 6-hour countdown started.');
+      loadPortfolio();
+    } catch (err) {
+      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
+      else toast.error('Announce failed: ' + (err?.reason || err?.message || 'Unknown'));
+    } finally { setActionAddr(null); }
+  };
+
+  const handleLaunch = async (addr) => {
+    if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
+    setActionAddr(addr);
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const fund = new ethers.Contract(addr, FUND_ABI, signer);
+      const tx = await fund.finalizeFunding({ gasLimit: 2_000_000 });
+      toast('Deploying agent: creating Uniswap V3 pool + locking LP...', { icon: '\u23F3' });
+      await tx.wait();
+      toast.success('Agent deployed! Pool created, LP locked permanently.');
+      loadPortfolio();
+    } catch (err) {
+      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
+      else {
+        const msg = err?.reason || err?.data?.message || err?.message || '';
+        const isGas = /gas|out of gas|intrinsic|UNPREDICTABLE_GAS_LIMIT/i.test(msg);
+        toast.error(isGas ? 'Out of gas — increase Gas Limit and retry.' : (err?.reason || msg || 'Launch failed'));
+      }
+    } finally { setActionAddr(null); }
+  };
+
+  function getAction(p) {
+    const busy = actionAddr === p.address;
+    if (p.state === 1 && p.contribution > 0) {
+      return { label: busy ? 'Refunding...' : 'Claim Refund', handler: () => handleClaimRefund(p.address), color: 'red', disabled: busy };
+    }
+    if (p.state === 2 && p.isLaunchExpired && p.contribution > 0) {
+      return { label: busy ? 'Refunding...' : 'Claim Refund (Expired)', handler: () => handleClaimRefund(p.address), color: 'red', disabled: busy };
+    }
+    if (p.state === 2 && p.isExpired && p.contribution > 0) {
+      return { label: busy ? 'Refunding...' : 'Claim Refund', handler: () => handleClaimRefund(p.address), color: 'amber', disabled: busy };
+    }
+    if (p.state === 2 && p.isLaunchExpired) {
+      return { label: 'Deployment Expired', handler: null, color: 'red', disabled: true };
+    }
+    if (p.state === 2 && !p.isExpired && p.isOwner && !p.isAnnounced) {
+      return { label: busy ? 'Initiating...' : 'Initiate Notice', handler: () => handleAnnounce(p.address), color: 'cyan', disabled: busy };
+    }
+    if (p.state === 2 && !p.isExpired && !p.isLaunchExpired && p.isOwner && p.isAnnounced && p.noticeElapsed) {
+      return { label: busy ? 'Deploying...' : 'Deploy to V3', handler: () => handleLaunch(p.address), color: 'emerald', disabled: busy };
+    }
+    if (p.state === 2 && !p.isExpired && p.isAnnounced && !p.noticeElapsed) {
+      return { label: 'T-Minus Active', handler: null, color: 'cyan', disabled: true };
+    }
+    if (p.state === 2 && !p.isExpired) {
+      return { label: 'Preparing', handler: null, color: 'zinc', disabled: true };
+    }
+    if (p.state >= 3 && p.isFinalized && p.contribution > 0) {
+      return { label: busy ? 'Claiming...' : 'Claim Agent Tokens', handler: () => handleClaimTokens(p.address), color: 'blue', disabled: busy };
+    }
+    if (p.state === 0) {
+      return { label: 'IAO Funding', handler: null, color: 'zinc', disabled: true };
+    }
+    return { label: 'View', handler: null, color: 'zinc', disabled: true };
+  }
+
+  const btnColors = {
+    red:     'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20',
+    amber:   'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20',
+    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20',
+    blue:    'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20',
+    cyan:    'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/20',
+    zinc:    'bg-zinc-800/50 text-zinc-500 border-zinc-700/40',
+  };
+
+  if (!account) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center font-mono space-y-6">
+        <div className="text-2xl font-black tracking-tighter text-white">Merit<span className="text-blue-500">X</span> Backed Agents</div>
+        <p className="text-white/20 text-sm tracking-widest uppercase animate-pulse">Connect wallet to view your backed agents</p>
+        <button onClick={connectWallet} className="px-8 py-3 rounded-full border border-blue-500/30 text-blue-500 font-bold text-sm hover:bg-blue-500 hover:text-black transition-all">
+          CONNECT WALLET
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-300 font-sans selection:bg-blue-600/30">
+      <main className="max-w-4xl mx-auto px-4 md:px-6 py-10 space-y-8">
+        <div className="border-b border-zinc-800/60 pb-6">
+          <h1 className="text-3xl font-black text-white tracking-tight mb-2">My Backed Agents</h1>
+          <p className="text-xs font-mono text-zinc-600">
+            Wallet <span className="text-zinc-400">{truncAddr(account)}</span> &middot; Showing all IAO sponsorships
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <span className="w-5 h-5 border-2 border-zinc-700 border-t-blue-500 rounded-full animate-spin" />
+            <span className="text-zinc-600 text-xs font-mono">Scanning backed agents...</span>
+          </div>
+        ) : error ? (
+          <div className="p-6 rounded-xl border border-red-500/20 bg-red-500/5 text-center space-y-3">
+            <p className="text-red-400 text-sm font-mono">{error}</p>
+            <button onClick={loadPortfolio} className="text-xs font-bold text-blue-400 hover:underline">Retry</button>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="text-center py-20 space-y-4">
+            <p className="text-zinc-600 font-mono text-sm">No backed agents found for this wallet.</p>
+            <Link href="/" className="text-blue-400 text-xs font-bold hover:underline">Browse IAO Directory &rarr;</Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AnimatePresence>
+              {projects.map((p, i) => {
+                const cfg = STATE_LABELS[p.state] || STATE_LABELS[0];
+                const action = getAction(p);
+                return (
+                  <motion.div
+                    key={p.address}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.25, delay: i * 0.04 }}
+                    className={`rounded-2xl border ${cfg.border} bg-zinc-900/40 backdrop-blur-sm p-5 hover:bg-zinc-900/60 transition-colors flex flex-col`}
+                  >
+                    {/* Header: Icon + Name + Badge */}
+                    <Link href={`/invest/${p.address}`} className="group flex items-start gap-3 mb-4">
+                      <div className="w-11 h-11 rounded-xl bg-black border border-zinc-800 flex items-center justify-center shrink-0">
+                        <span className="text-lg font-black text-blue-500">{p.name.charAt(0)}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors truncate">{p.name}</h3>
+                          <span className="text-[10px] font-mono text-zinc-600">${p.symbol}</span>
+                          {p.isOwner && (
+                            <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/30 text-[8px] font-bold uppercase tracking-widest text-purple-400">AI Dev</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] font-mono text-zinc-600 mt-0.5">{truncAddr(p.address)}</p>
+                      </div>
+                    </Link>
+
+                    {/* Status + Progress */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono">
+                        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                        <span className={cfg.color}>{cfg.text}</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-zinc-600 tabular-nums">{p.progress.toFixed(0)}%</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${p.state === 1 ? 'bg-red-500/80' : p.state >= 3 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                          style={{ width: `${p.progress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 mb-4">
+                      {p.contribution > 0 ? (
+                        <span className="text-white font-bold tabular-nums">{fmtEth(p.contribution)} <span className="text-zinc-600">ETH sponsored</span></span>
+                      ) : (
+                        <span>—</span>
+                      )}
+                      <span className="tabular-nums">{fmtEth(p.raised)} / {fmtEth(p.softCap, 0)} ETH</span>
+                    </div>
+
+                    {/* Action */}
+                    <div className="mt-auto">
+                      {action.handler ? (
+                        <button
+                          onClick={action.handler}
+                          disabled={action.disabled}
+                          className={`w-full py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all disabled:opacity-50 disabled:animate-pulse ${btnColors[action.color]}`}
+                        >
+                          {action.label}
+                        </button>
+                      ) : (
+                        <span className={`block w-full text-center py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${btnColors[action.color]}`}>
+                          {action.label}
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

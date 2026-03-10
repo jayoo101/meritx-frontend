@@ -30,8 +30,18 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — NEVER commit secrets
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# hardhat / solidity build artifacts
+meritx-contracts/blockchain/artifacts/
+meritx-contracts/blockchain/cache/
+meritx-contracts/blockchain/typechain-types/
 
 # vercel
 .vercel
