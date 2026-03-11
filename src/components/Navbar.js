@@ -377,7 +377,7 @@ export default function Navbar() {
     } finally { setActionAddr(null); }
   };
 
-  // ---- Categorize projects into tabs ----
+  // ---- Categorize projects into tabs 1----
   const { active, claimable, refunds, hasLiveNotice } = useMemo(() => {
     const active = [];
     const claimable = [];
