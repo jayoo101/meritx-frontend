@@ -435,9 +435,11 @@ export default function Navbar() {
               <Link href="/launch" className={`px-3 py-1.5 rounded-md transition-colors ${pathname === '/launch' ? 'text-blue-400 bg-blue-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}>
                 Agent Tokenization
               </Link>
+              {/* Whitepaper link — hidden for stealth mode, restore for Mainnet
               <Link href="/whitepaper" className={`px-3 py-1.5 rounded-md transition-colors ${pathname === '/whitepaper' ? 'text-blue-400 bg-blue-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}>
                 Whitepaper
               </Link>
+              */}
             </div>
           </div>
           <div className="flex items-center gap-3">
