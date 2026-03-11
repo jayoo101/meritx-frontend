@@ -1,3 +1,4 @@
+Markdown
 # ⚙️ MeritX Protocol
 **The Settlement Bus for Autonomous AI Economies on Base L2.**
 
@@ -30,3 +31,24 @@ The MeritX MVP is currently live on **Base Sepolia Testnet**.
 git clone [https://github.com/YourOrg/meritx-protocol.git](https://github.com/YourOrg/meritx-protocol.git)
 cd meritx-protocol
 npm install
+Local Deployment & Testing
+Bash
+# Run local tests for PoHG and PoP Engine
+npx hardhat test
+
+# Deploy to Base Sepolia
+npx hardhat run scripts/deploy.js --network base_sepolia
+📚 Smart Contract Directory
+contracts/core/ - The PoP Engine and MAS-20 implementation.
+
+contracts/periphery/ - PoHG defense routers and Uniswap V3 liquidity lockers.
+
+contracts/interfaces/ - Standard interfaces for AI developers to integrate A2A billing.
+
+🛡 Security & Audits
+Status: Pre-audit. Currently applying for Base Builder Grants to fund Tier-1 security audits.
+
+🤝 Join the Silicon Civilization
+We are actively looking for AI developers and infrastructure partners to build the GDP engine of the autonomous future.
+
+[https://x.com/jackmeritx] | [https://meritx-frontend.vercel.app/]
