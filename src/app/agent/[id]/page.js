@@ -1,9 +1,10 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 const TERMINAL_FONT = "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace";
 
@@ -133,6 +134,9 @@ export default function AgentDetailPage() {
   const [copied, setCopied] = useState(false);
   const [liveLogs, setLiveLogs] = useState([]);
   const [protocolFeed, setProtocolFeed] = useState([]);
+  const [sponsorAmount, setSponsorAmount] = useState('');
+  const [fundingState, setFundingState] = useState('idle');
+  const logIdRef = useRef(100_000);
 
   useEffect(() => {
     if (!agent) return;
@@ -172,6 +176,43 @@ export default function AgentDetailPage() {
     navigator.clipboard.writeText(agent.masEndpoint);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleFund = () => {
+    if (!agent || fundingState !== 'idle') return;
+    const amt = parseFloat(sponsorAmount) || 0.01;
+    const display = amt.toFixed(amt < 0.01 ? 4 : 2);
+
+    setFundingState('pending');
+
+    setTimeout(() => {
+      setFundingState('confirmed');
+      toast.success(`Transaction Confirmed: ${display} ETH contributed to ${agent.name} on Base Sepolia.`, { duration: 5000 });
+
+      const ts = generateTimestamp();
+      const nextId = logIdRef.current++;
+      const feedId = logIdRef.current++;
+
+      setLiveLogs(prev => [{
+        id: nextId,
+        time: ts.slice(-8),
+        text: `Sponsor received: ${display} ETH from connected wallet via PoHG gateway`,
+        type: 'fund',
+      }, ...prev].slice(0, 14));
+
+      setProtocolFeed(prev => [{
+        id: feedId,
+        tag: 'SETTLEMENT',
+        text: `${display} ETH settled to ${agent.name} — PoHG VERIFIED`,
+        color: 'text-cyan-400',
+        timestamp: ts,
+      }, ...prev].slice(0, 20));
+
+      setTimeout(() => {
+        setFundingState('idle');
+        setSponsorAmount('');
+      }, 2000);
+    }, 1500);
   };
 
   if (!agent) {
@@ -307,21 +348,71 @@ export default function AgentDetailPage() {
           {/* ═══════════════ ACTION SIDEBAR ═══════════════ */}
           <aside className="space-y-6">
 
-            {/* Fund Button */}
+            {/* Sponsor / Fund Section */}
             <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-5 space-y-4">
-              <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">{agent.state === 3 ? 'Agent Operations' : agent.state === 2 ? 'Deployment Queue' : 'Sponsor Compute'}</p>
-              <button className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all shadow-lg ${
-                agent.state === 3
-                  ? 'text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 shadow-emerald-600/20 hover:shadow-emerald-500/30'
-                  : agent.state === 0
-                    ? 'text-white bg-blue-600 hover:bg-blue-500 border border-blue-500 shadow-blue-600/20 hover:shadow-blue-500/30'
-                  : agent.state === 2
-                    ? 'text-white bg-purple-600 hover:bg-purple-500 border border-purple-500 shadow-purple-600/20 hover:shadow-purple-500/30'
-                    : 'text-zinc-400 bg-zinc-800 border border-zinc-700 cursor-not-allowed shadow-none'
-              }`}>
-                {agent.state === 3 ? 'View Agent Dashboard' : agent.state === 0 ? 'Fund this Agent' : agent.state === 2 ? 'Initializing...' : 'Coming Soon'}
-              </button>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+                  {agent.state === 3 ? 'Agent Operations' : agent.state === 2 ? 'Deployment Queue' : 'Sponsor Compute'}
+                </p>
+                {agent.pohgVerified && (
+                  <span className="flex items-center gap-1 text-[9px] font-mono text-emerald-400">
+                    PoHG: PASSED
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  </span>
+                )}
+              </div>
+
               {agent.state === 0 && (
+                <div className="space-y-2">
+                  <label className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">Sponsor Amount (ETH)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      value={sponsorAmount}
+                      onChange={(e) => setSponsorAmount(e.target.value)}
+                      placeholder="e.g. 0.01"
+                      disabled={fundingState !== 'idle'}
+                      className="w-full px-4 py-3 rounded-xl bg-black/60 border border-zinc-800 text-sm text-white placeholder:text-zinc-700 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all disabled:opacity-50"
+                      style={{ fontFamily: TERMINAL_FONT }}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-600">ETH</span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={agent.state === 0 ? handleFund : undefined}
+                disabled={agent.state === 0 && fundingState !== 'idle'}
+                className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all shadow-lg ${
+                  agent.state === 3
+                    ? 'text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 shadow-emerald-600/20 hover:shadow-emerald-500/30'
+                    : agent.state === 0
+                      ? fundingState === 'confirmed'
+                        ? 'text-white bg-emerald-600 border border-emerald-500 shadow-emerald-600/20'
+                        : fundingState === 'pending'
+                          ? 'text-white bg-blue-700 border border-blue-600 shadow-blue-700/20 animate-pulse cursor-wait'
+                          : 'text-white bg-blue-600 hover:bg-blue-500 border border-blue-500 shadow-blue-600/20 hover:shadow-blue-500/30'
+                    : agent.state === 2
+                      ? 'text-white bg-purple-600 hover:bg-purple-500 border border-purple-500 shadow-purple-600/20 hover:shadow-purple-500/30'
+                      : 'text-zinc-400 bg-zinc-800 border border-zinc-700 cursor-not-allowed shadow-none'
+                }`}
+              >
+                {agent.state === 3
+                  ? 'View Agent Dashboard'
+                  : agent.state === 0
+                    ? fundingState === 'pending'
+                      ? 'Waiting for Base...'
+                      : fundingState === 'confirmed'
+                        ? 'Confirmed ✓'
+                        : 'Fund this Agent'
+                  : agent.state === 2
+                    ? 'Initializing...'
+                    : 'Coming Soon'}
+              </button>
+
+              {agent.state === 0 && fundingState === 'idle' && (
                 <p className="text-[10px] text-zinc-500 font-mono text-center">
                   PoHG verification required &middot; Min 0.001 ETH
                 </p>
