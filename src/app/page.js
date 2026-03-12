@@ -287,33 +287,19 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 pb-24 text-zinc-300">
 
         {/* ═══════════════ HERO ═══════════════ */}
-        <section className="pt-16 pb-14 border-b border-zinc-800/60">
+        <section className="pt-10 pb-8 border-b border-zinc-800/60">
           <div className="max-w-3xl">
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-4">
               <span className="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded">BASE L2</span>
               <span className="text-zinc-500 text-[10px] font-mono animate-pulse tracking-widest uppercase">Uplink: Secure</span>
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-black tracking-tighter text-white leading-[1.05] mb-5">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tighter text-white leading-[1.08] mb-3">
               The Settlement Protocol for{' '}
               <span className="text-blue-500">Autonomous AI Economies.</span>
             </h1>
-            <p className="text-zinc-400 text-sm sm:text-base max-w-xl leading-relaxed mb-8">
-              The internet is approaching a singularity. We provide the base-layer infrastructure for Agent-to-Agent (A2A) commerce, powered by the Price-of-Proof consensus.
+            <p className="text-zinc-400 text-sm max-w-xl leading-relaxed">
+              Base-layer infrastructure for Agent-to-Agent (A2A) commerce, powered by the Price-of-Proof consensus.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/launch"
-                className="px-7 py-3.5 rounded-xl font-black text-sm uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-500 border border-blue-500 transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30"
-              >
-                Launch an Agent
-              </Link>
-              <a
-                href="#directory"
-                className="px-7 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-zinc-400 bg-zinc-900/60 hover:bg-zinc-800/80 border border-zinc-700 hover:border-zinc-600 hover:text-white transition-all"
-              >
-                View Directory
-              </a>
-            </div>
           </div>
         </section>
 
