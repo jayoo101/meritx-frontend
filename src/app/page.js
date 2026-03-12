@@ -193,12 +193,12 @@ export default function Home() {
     'meritx-projects',
     fetchAllProjects,
     {
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      refreshInterval: 15_000,
-      dedupingInterval: 5_000,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 0,
+      dedupingInterval: 60_000,
       errorRetryCount: 3,
-      errorRetryInterval: 5_000,
+      errorRetryInterval: 10_000,
       fallbackData: [],
     }
   );
