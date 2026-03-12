@@ -1,35 +1,39 @@
-# MeritX Technical Litepaper (v12.0)
-**The Settlement Protocol for Autonomous AI Economies on Base**
+# MeritX: The Settlement Protocol for Autonomous AI Economies (v10.0)
 
-## 0. Manifesto
-The evolution of the internet is approaching an irreversible technological singularity: AI is rapidly transforming from a passive human tool (Human-to-AI) into intelligent agents capable of autonomous collaboration (Agent-to-Agent). In this imminent era, thousands of autonomous AI agents will buy data, consume compute, call APIs, and exchange value in real-time. This entirely new paradigm of machine-to-machine interaction constitutes the **Autonomous AI Economies**. 
+## Abstract
+As Autonomous AI Agents evolve, internet infrastructure is shifting from Human-to-AI to **AI-to-AI (A2A)** commerce. MeritX is a decentralized settlement protocol designed specifically for the Agentic Economy. It enables AI developers to launch agents via **Initial Agent Offerings (IAO)**, utilizes the **Price-of-Proof (PoP)** mechanism for compute subsidies, and ensures absolute security through cryptographic time-locks and "Black Hole" liquidity.
 
-However, legacy financial systems and early crypto platforms cannot support this high-frequency, trustless A2A commerce. MeritX is built for this exact purpose: we provide the ultimate base-layer settlement infrastructure for these silicon-based economies.
+## 1. The Narrative: The Third Consensus
+- **Bitcoin:** Decentralized Currency via PoW.
+- **Ethereum:** Decentralized Applications via PoS.
+- **MeritX:** Autonomous AI Economies via **Price-of-Proof (PoP)**.
+In MeritX, market value growth triggers token supply expansion, providing legitimate "Compute Subsidies" for AI builders.
 
-## 1. The Third Consensus
-Every paradigm shift in blockchain history has been driven by underlying consensus innovation:
-* **Bitcoin** introduced *Proof-of-Work*, creating decentralized currency.
-* **Ethereum** introduced *Proof-of-Stake*, creating decentralized applications.
-* **MeritX** introduces **Price-of-Proof (PoP)**. Under this mechanism, free-market pricing and authentic demand become the absolute laws governing the expansion of AI agent compute subsidies.
+## 2. Carbon Defense: Proof-of-Historical-Gas (PoHG)
+To prevent bot manipulation during the genesis phase:
+- **Gas-based Allocation:** A user's maximum IAO investment is capped at 1% of their total historical EVM Gas spent (~0.06 ETH cap). Your on-chain footprint is your passport.
+- **48h Global Cooldown:** Addresses participating in an IAO are silenced for 48 hours to prevent high-frequency "sniping."
 
-## 2. Protocol Architecture: The 7-Layer Settlement Stack
-MeritX establishes the operational laws of the AI economy through a rigorous, bottom-up 7-layer architecture:
-* **Application Layer:** The interaction frontline for all AI agents (trading bots, data scrapers, LLM APIs).
-* **Agent Economy Layer:** Hosts the commercial logic and revenue streams of the agents.
-* **Launch Protocol:** Enables permissionless Initial Agent Offerings (IAO).
-* **PoP Monetary Engine:** Smoothly regulates token supply based on market prices.
-* **Liquidity Layer:** Perpetual underlying liquidity powered by Uniswap V3.
-* **Settlement Layer (Base L2 + EIP-4844):** Relies on Base L2 for lightning-fast, low-cost execution. *Crucially, we utilize EIP-4844 data blobs for rolling up agent state data. To handle blob expiry (~18 days), MeritX periodically posts compressed state roots to L1/Base calldata as fallback proofs, ensuring long-term verifiability without bottlenecking the L2.*
-* **Ethereum Security:** Inherits the absolute consensus security of the Ethereum mainnet.
+## 3. Agent Genesis & IAO Mechanics
+- **Anti-Spam:** 0.015 ETH listing fee to filter low-quality scripts.
+- **24h Lifeline:** Minimum Viable Capital (MVC) is hardcoded at **15 ETH**. 
+- **Refund Policy:** If the 15 ETH soft-cap is not met within 24 hours, investors receive a 100% lossless refund.
 
-## 3. Agent Standard: MAS-20
-Just as ERC-20 ignited the DeFi summer, MeritX introduces the **MAS-20 (MeritX Agent Standard)** designed specifically for the AI era. This standard unifies the following interfaces at the smart contract level:
-* **Metadata:** Defines the agent's functional attributes and interaction methods.
-* **Token Binding:** Deeply binds the agent's native token with its execution permissions.
-* **Revenue Interface:** Standardizes the logic for profit sharing, buybacks, and burns.
-* **Compute Usage Interface:** Normalizes billing and payment channels for API calls.
-MAS-20 ensures that all agents on the MeritX network possess ultimate composability and financial interoperability.
+## 4. Strategic Window & Anti-Stealth Launch
+- **30-day Strategic Prep:** After a successful IAO, developers have up to 30 days for marketing and API integration while funds remain locked.
+- **6h Anti-Stealth Notice:** Developers must trigger an on-chain countdown 6 hours before adding liquidity to eliminate information asymmetry.
 
-## 4. Machine Genesis & The Carbon Defense: IAO & PoHG
-To prevent capital oligarchs and high-frequency Sybil bots from monopolizing early premium AI assets, MeritX deploys a strictly fair game-theoretic mechanism at the entry point:
-* **Initial Agent Offering (IAO):** Provides a 24-hour permissionless funding window. The Minimum Viable Capital soft-cap is hardcoded at 15 ETH. If unmet, investors can execute a 10
+## 5. Black Hole Liquidity
+- **95% Permanent Liquidity:** 95% of raised ETH and 19,950,000 tokens are injected into Uniswap V3.
+- **Burned LP:** LP NFTs are sent to `0x000...dEaD`, ensuring irrevocable market depth.
+- **Zero Pre-mine:** Developers start with 0 tokens, matching the retail entry price ($P_0$).
+
+## 6. Price-of-Proof (PoP) Inflation Engine
+The supply expands based on a strict power function: 
+**S(P) = 40,950,000 * (P_TWAP / P_0)^0.15**
+This converts market demand into developer compute subsidies while protecting early investor equity from hyper-inflation.
+
+## 7. Endgame: A2A Settlement Network
+MeritX will evolve into a high-speed settlement layer for A2A commerce. Agents will settle API micro-transactions via off-chain state channels with finality secured on Base L2.
+
+**Launch AI Agents. Tokenize their Value. Power AI-to-AI Commerce. 🔵**
