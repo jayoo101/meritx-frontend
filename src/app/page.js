@@ -238,6 +238,13 @@ export default function Home() {
       }
     }
 
+    const onChainAddrs = new Set(projects.map(p => p.address));
+    for (const seed of SEED_AGENTS) {
+      if (onChainAddrs.has(seed.address)) continue;
+      if (seed.state === 0) live.push(seed);
+      else if (seed.state === 3) completed.push(seed);
+    }
+
     live.sort((a, b) => b.progress - a.progress);
     launching.sort((a, b) => a.endTime - b.endTime);
     completed.sort((a, b) => b.progress - a.progress);
@@ -280,49 +287,65 @@ export default function Home() {
 
         {/* ═══════════════ HERO ═══════════════ */}
         <section className="pt-16 pb-14 border-b border-zinc-800/60">
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-10">
-            <div className="max-w-2xl">
-              <div className="flex items-center gap-3 mb-6">
-                <span className="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded">BASE L2</span>
-                <span className="text-zinc-500 text-[10px] font-mono animate-pulse tracking-widest uppercase">Uplink: Secure</span>
-              </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-black tracking-tighter text-white leading-[1.05] mb-5">
-                The Settlement Protocol for{' '}
-                <span className="text-blue-500">Autonomous AI Economies.</span>
-              </h1>
-              <p className="text-white/40 text-sm sm:text-base max-w-xl leading-relaxed mb-8">
-                The internet is approaching a singularity. We provide the base-layer infrastructure for Agent-to-Agent (A2A) commerce, powered by the Price-of-Proof consensus.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/launch"
-                  className="px-7 py-3.5 rounded-xl font-black text-sm uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-500 border border-blue-500 transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30"
-                >
-                  Launch an Agent
-                </Link>
-                <a
-                  href="#directory"
-                  className="px-7 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-zinc-400 bg-zinc-900/60 hover:bg-zinc-800/80 border border-zinc-700 hover:border-zinc-600 hover:text-white transition-all"
-                >
-                  View Directory
-                </a>
-              </div>
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-3 mb-6">
+              <span className="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded">BASE L2</span>
+              <span className="text-zinc-500 text-[10px] font-mono animate-pulse tracking-widest uppercase">Uplink: Secure</span>
             </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-black tracking-tighter text-white leading-[1.05] mb-5">
+              The Settlement Protocol for{' '}
+              <span className="text-blue-500">Autonomous AI Economies.</span>
+            </h1>
+            <p className="text-white/40 text-sm sm:text-base max-w-xl leading-relaxed mb-8">
+              The internet is approaching a singularity. We provide the base-layer infrastructure for Agent-to-Agent (A2A) commerce, powered by the Price-of-Proof consensus.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/launch"
+                className="px-7 py-3.5 rounded-xl font-black text-sm uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-500 border border-blue-500 transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30"
+              >
+                Launch an Agent
+              </Link>
+              <a
+                href="#directory"
+                className="px-7 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-zinc-400 bg-zinc-900/60 hover:bg-zinc-800/80 border border-zinc-700 hover:border-zinc-600 hover:text-white transition-all"
+              >
+                View Directory
+              </a>
+            </div>
+          </div>
+        </section>
 
-            <div className="hidden lg:block w-72 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 overflow-hidden shrink-0">
-              <p className="text-[9px] text-zinc-600 font-bold mb-3 uppercase tracking-widest">A2A_LIVE_FEED</p>
-              <div className="text-[10px] font-mono text-blue-400/60 space-y-1.5">
-                {a2aLogs.map((log) => <div key={log.id} className="truncate">{log.text}</div>)}
+        {/* ═══════════════ A2A LIVE TICKER ═══════════════ */}
+        <div className="py-3 border-b border-zinc-800/40 overflow-hidden">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
+              <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">A2A Feed</span>
+            </span>
+            <div className="flex-1 overflow-hidden">
+              <div className="flex gap-8 text-[10px] font-mono text-blue-400/50 whitespace-nowrap">
+                <AnimatePresence initial={false}>
+                  {a2aLogs.map(log => (
+                    <motion.span
+                      key={log.id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="shrink-0"
+                    >
+                      {log.text}
+                    </motion.span>
+                  ))}
+                </AnimatePresence>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Above-the-fold preview: always visible, never gated by loading */}
-          <HeroPreviewCards projects={projects} />
-        </section>
-
-        {/* ═══════════════ AGENT DIRECTORY (Function First) ═══════════════ */}
-        <section id="directory" className="pt-12">
+        {/* ═══════════════ AGENT DIRECTORY ═══════════════ */}
+        <section id="directory" className="pt-8">
 
           {/* Live indicator */}
           {!error && (
@@ -425,8 +448,12 @@ export default function Home() {
                         return (
                           <div
                             key={p.address}
-                            onClick={() => window.location.href = '/invest/' + encodeURIComponent(p.address)}
-                            className="relative group cursor-pointer p-6 rounded-2xl transition-all duration-500 bg-zinc-900/20 backdrop-blur-md border border-zinc-800 hover:border-blue-500/50 hover:shadow-[0_0_30px_rgba(37,99,235,0.1)]"
+                            onClick={() => window.location.href = p._seed ? '/agent/' + p._seedId : '/invest/' + encodeURIComponent(p.address)}
+                            className={`relative group cursor-pointer p-6 rounded-2xl transition-all duration-500 bg-zinc-900/20 backdrop-blur-md border hover:shadow-[0_0_30px_rgba(37,99,235,0.1)] ${
+                              p.state === 3
+                                ? 'border-emerald-500/30 hover:border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.06)]'
+                                : 'border-zinc-800 hover:border-blue-500/50'
+                            }`}
                           >
                             <div className="flex justify-between items-start mb-6">
                               <div className="w-12 h-12 rounded-xl bg-black border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
@@ -436,7 +463,8 @@ export default function Home() {
                                   <span className="text-2xl font-black text-blue-500">{p.name.charAt(0)}</span>
                                 )}
                               </div>
-                              <span className={`text-[9px] font-bold px-2 py-1 rounded border uppercase tracking-widest ${badge.color}`}>
+                              <span className={`flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded border uppercase tracking-widest ${badge.color}`}>
+                                {p.state === 3 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />}
                                 {badge.text}
                               </span>
                             </div>
@@ -455,9 +483,15 @@ export default function Home() {
                                 <span className="text-zinc-500 uppercase">IAO Progress</span>
                                 <span className="text-white font-bold">{Math.min(p.progress, 100).toFixed(1)}%</span>
                               </div>
-                              <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                                 <div
-                                  className={`h-full rounded-full transition-all duration-1000 ${isFailed ? 'bg-red-500/80' : p.state === 3 ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]' : 'bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.8)]'}`}
+                                  className={`h-full rounded-full transition-all duration-1000 ${
+                                    isFailed
+                                      ? 'bg-red-500/80'
+                                      : p.state === 3
+                                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.6)]'
+                                        : 'bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]'
+                                  }`}
                                   style={{ width: `${Math.min(100, p.progress)}%` }}
                                 />
                               </div>
@@ -570,120 +604,53 @@ const ARCH_LAYERS = [
 
 const TERMINAL_FONT = "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace";
 
-// ═══════════════ HERO PREVIEW CARDS (above the fold) ═══════════════
+// ═══════════════ SEED AGENTS (always visible in directory) ═══════════════
 
-const SHOWCASE_AGENTS = [
+const _now = Date.now();
+const SEED_AGENTS = [
   {
-    id: 'malpha',
+    address: '0xA1fa82e300000000000000000000000000000001',
     name: 'Merit-Alpha-01',
     symbol: 'MALPHA',
-    progress: 82,
-    status: 'ACTIVE',
     state: 3,
+    raised: 0.082,
+    softCap: 0.1,
+    progress: 82,
+    endTime: _now - 2 * 24 * 3_600_000,
+    avatarUrl: null,
     description: 'Autonomous High-Frequency Liquidity Provider. Executes cross-dex arbitrage on Base using MAS-20 settlement.',
+    _seed: true,
+    _seedId: 'malpha',
   },
   {
-    id: 'dscan',
+    address: '0xD5ca9b0200000000000000000000000000000002',
     name: 'DeepScan_Base_GPT',
     symbol: 'DSCAN',
-    progress: 45,
-    status: 'IAO_LIVE',
     state: 0,
+    raised: 0.045,
+    softCap: 0.1,
+    progress: 45,
+    endTime: _now + 48 * 3_600_000,
+    avatarUrl: null,
     description: 'On-chain Research Agent. Autonomously purchases premium RPC compute via PoHG-verified gateways.',
+    _seed: true,
+    _seedId: 'dscan',
   },
   {
-    id: 'sent',
+    address: '0x5e41ae1300000000000000000000000000000003',
     name: 'BaseGuard_Sentinel',
     symbol: 'SENT',
+    state: 0,
+    raised: 0,
+    softCap: 0.1,
     progress: 0,
-    status: 'UPCOMING',
-    state: -1,
+    endTime: _now + 72 * 3_600_000,
+    avatarUrl: null,
     description: 'Security Audit Agent. The first sentinel node deployed via PoHG Sybil-defense protocol.',
+    _seed: true,
+    _seedId: 'sent',
   },
 ];
-
-const HERO_BADGE_MAP = {
-  ACTIVE:   { text: 'ACTIVE',   cls: 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20', pulse: true },
-  IAO_LIVE: { text: 'IAO LIVE', cls: 'text-blue-400 bg-blue-500/10 border border-blue-500/20',        pulse: false },
-  UPCOMING: { text: 'UPCOMING', cls: 'text-amber-400 bg-amber-500/10 border border-amber-500/20',     pulse: false },
-};
-
-function HeroPreviewCards({ projects }) {
-  const liveCards = (projects || []).length >= 3 ? projects.slice(0, 3) : null;
-
-  const data = liveCards
-    ? liveCards.map(p => ({
-        id: p.address,
-        name: p.name,
-        symbol: p.symbol,
-        progress: p.progress,
-        status: p.state === 3 ? 'ACTIVE' : p.state === 0 ? 'IAO_LIVE' : 'UPCOMING',
-        state: p.state,
-        description: p.description || '',
-        avatarUrl: p.avatarUrl,
-        isLive: true,
-      }))
-    : SHOWCASE_AGENTS;
-
-  return (
-    <div className="mt-10">
-      <p className="text-[9px] font-mono text-zinc-600 tracking-widest uppercase mb-3">
-        {liveCards ? '> LIVE_AGENTS' : '> DEPLOYED_AGENTS'}
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {data.map((a) => {
-          const badge = HERO_BADGE_MAP[a.status] || HERO_BADGE_MAP.UPCOMING;
-          const pct = Math.min(100, a.progress);
-          return (
-            <div
-              key={a.id}
-              onClick={() => a.isLive && a.id?.startsWith('0x') && (window.location.href = '/invest/' + encodeURIComponent(a.id))}
-              className="group relative rounded-xl border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-sm p-4 hover:border-blue-500/30 hover:bg-zinc-900/60 transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-9 h-9 rounded-lg bg-black border border-zinc-800 flex items-center justify-center shrink-0">
-                  {a.avatarUrl ? (
-                    <AvatarImg src={a.avatarUrl} alt={a.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-base font-black text-blue-500">{a.name.charAt(0)}</span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">{a.name}</span>
-                  <span className="text-[10px] font-mono text-zinc-600">${a.symbol}</span>
-                </div>
-                <span className={`flex items-center gap-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0 ${badge.cls}`}>
-                  {badge.pulse && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />}
-                  {badge.text}
-                </span>
-              </div>
-
-              <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 mb-3 min-h-[32px]">{a.description}</p>
-
-              <div className="w-full h-1.5 bg-zinc-800/80 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]"
-                  style={{ width: `${pct}%`, transition: 'width 1s ease-out' }}
-                />
-              </div>
-              <div className="flex items-center justify-between mt-1.5">
-                <span className="text-[10px] font-mono text-zinc-600">{pct.toFixed(1)}% funded</span>
-                {a.status === 'ACTIVE' && <span className="text-[9px] font-mono text-emerald-500/70">Generating yield</span>}
-                {a.status === 'IAO_LIVE' && <span className="text-[9px] font-mono text-blue-400/70">Accepting sponsors</span>}
-                {a.status === 'UPCOMING' && <span className="text-[9px] font-mono text-amber-400/60">Pending PoHG gate</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex justify-center mt-4">
-        <a href="#directory" className="text-[10px] font-mono text-zinc-600 hover:text-blue-400 transition-colors tracking-wider">
-          VIEW FULL DIRECTORY &darr;
-        </a>
-      </div>
-    </div>
-  );
-}
 
 function ProtocolStack() {
   return (

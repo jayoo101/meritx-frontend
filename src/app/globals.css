@@ -407,3 +407,52 @@ h1, h2, h3 {
   0%, 100% { box-shadow: 0 0 8px rgba(59, 130, 246, 0.3), 0 0 2px rgba(59, 130, 246, 0.15); }
   50%      { box-shadow: 0 0 18px rgba(59, 130, 246, 0.55), 0 0 6px rgba(59, 130, 246, 0.35); }
 }
+
+/* ── Protocol terminal scanline + flicker ── */
+@keyframes terminal-scanline {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+@keyframes terminal-flicker {
+  0%, 97%, 100% { opacity: 1; }
+  98%           { opacity: 0.92; }
+  99%           { opacity: 0.97; }
+}
+.protocol-terminal {
+  position: relative;
+  overflow: hidden;
+  animation: terminal-flicker 4s linear infinite;
+}
+.protocol-terminal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(37, 99, 235, 0.018) 2px,
+      rgba(37, 99, 235, 0.018) 3px
+    );
+  pointer-events: none;
+  z-index: 1;
+}
+.protocol-terminal::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 35%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(37, 99, 235, 0.03) 40%,
+    rgba(37, 99, 235, 0.06) 50%,
+    rgba(37, 99, 235, 0.03) 60%,
+    transparent
+  );
+  animation: terminal-scanline 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 2;
+}
