@@ -279,7 +279,7 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 pb-24 text-zinc-300">
 
         {/* ═══════════════ HERO ═══════════════ */}
-        <section className="pt-16 pb-20 border-b border-zinc-800/60">
+        <section className="pt-16 pb-14 border-b border-zinc-800/60">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-10">
             <div className="max-w-2xl">
               <div className="flex items-center gap-3 mb-6">
@@ -316,91 +316,13 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* Above-the-fold preview: 3 condensed agent cards */}
+          <HeroPreviewCards projects={projects} isLoading={isFirstLoad && !error} />
         </section>
 
-        {/* ═══════════════ PROTOCOL ARCHITECTURE ═══════════════ */}
-        <section className="py-20 border-b border-zinc-800/60">
-          <div className="text-center mb-12">
-            <p className="font-mono text-[10px] text-zinc-600 tracking-[0.25em] uppercase mb-2">&gt; SYSTEM_ARCHITECTURE</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Protocol Architecture</h2>
-            <p className="text-zinc-500 text-sm mt-3 max-w-lg mx-auto leading-relaxed">
-              Seven composable layers forming the complete settlement stack for autonomous agent economies.
-            </p>
-          </div>
-          <ProtocolStack />
-        </section>
-
-        {/* ═══════════════ CORE PRIMITIVES ═══════════════ */}
-        <section className="py-20 border-b border-zinc-800/60">
-          <div className="text-center mb-12">
-            <p className="font-mono text-[10px] text-zinc-600 tracking-[0.25em] uppercase mb-2">&gt; CORE_PRIMITIVES</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">The Four Pillars</h2>
-            <p className="text-zinc-500 text-sm mt-3 max-w-lg mx-auto leading-relaxed">
-              Cryptographic primitives that guarantee fairness, liquidity, and sustainable growth for every AI agent.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <PrimitiveCard
-              tag="Standard"
-              title="MAS-20"
-              accent="blue"
-              description="The universal token and API interface standard for autonomous AI agents. Every agent minted through MeritX conforms to MAS-20, enabling composable A2A commerce across the entire network."
-            />
-            <PrimitiveCard
-              tag="Defense"
-              title="Dynamic PoHG"
-              accent="cyan"
-              description="Proof-of-Historical-Gas defense preventing bot domination and ensuring fair human allocation. Your on-chain gas history determines your sponsorship ceiling — zero Sybils, maximum legitimacy."
-            />
-            <PrimitiveCard
-              tag="Liquidity"
-              title="Protocol-Owned Liquidity"
-              accent="purple"
-              description="95% of raised funds permanently locked in Uniswap V3 full-range positions, generating real yield. The LP NFT stays inside the contract forever — no rug pulls, no unlocks."
-            />
-            <PoPCard />
-          </div>
-        </section>
-
-        {/* ═══════════════ MRX TOKEN ═══════════════ */}
-        <section className="py-20 border-b border-zinc-800/60">
-          <div className="max-w-3xl mx-auto">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/20 backdrop-blur-md p-8 sm:p-10 relative overflow-hidden">
-              <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-blue-600/[0.04] blur-3xl pointer-events-none" />
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-5">
-                  <span className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-black text-sm">M</span>
-                  <div>
-                    <p className="font-mono text-[10px] text-zinc-600 tracking-[0.2em] uppercase">Native Asset</p>
-                    <h2 className="text-xl font-black text-white tracking-tight">The MRX Token</h2>
-                  </div>
-                </div>
-                <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-                  MRX is the native gas, governance, and collateral token powering the entire MeritX ecosystem. It serves as the unit of account for all protocol fees, the staking asset for validator-level participation, and the governance weight for on-chain parameter upgrades.
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: 'Protocol Gas', desc: 'Listing fees & settlement' },
-                    { label: 'Governance', desc: 'On-chain parameter votes' },
-                    { label: 'Collateral', desc: 'Staking & insurance layer' },
-                  ].map((item) => (
-                    <div key={item.label} className="p-3 rounded-xl bg-black/30 border border-zinc-800/60 text-center">
-                      <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold font-mono mb-1">{item.label}</p>
-                      <p className="text-[11px] text-zinc-400 font-mono">{item.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════ AGENT DIRECTORY ═══════════════ */}
-        <section id="directory" className="pt-16">
-          <div className="text-center mb-10">
-            <p className="font-mono text-[10px] text-zinc-600 tracking-[0.25em] uppercase mb-2">&gt; AGENT_DIRECTORY</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Live Agent Offerings</h2>
-          </div>
+        {/* ═══════════════ AGENT DIRECTORY (Function First) ═══════════════ */}
+        <section id="directory" className="pt-12">
 
           {/* Live indicator */}
           {!error && (
@@ -569,10 +491,70 @@ export default function Home() {
             )}
           </ProjectErrorBoundary>
         </section>
+
+        {/* ═══════════════ WHY MERITX — 3-col feature bullets ═══════════════ */}
+        <section className="py-16 border-t border-zinc-800/60">
+          <div className="text-center mb-10">
+            <p className="font-mono text-[10px] text-zinc-600 tracking-[0.25em] uppercase mb-2">&gt; PROTOCOL_PRIMITIVES</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Why MeritX</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURE_BULLETS.map((f) => (
+              <div key={f.title} className={`rounded-xl border p-5 transition-all duration-300 hover:scale-[1.01] ${f.border} ${f.bg}`}>
+                <p className={`text-[9px] font-bold uppercase tracking-widest font-mono mb-2 ${f.accent}`}>{f.tag}</p>
+                <h3 className="text-sm font-black text-white mb-1.5">{f.title}</h3>
+                <p className="text-[12px] text-zinc-300/70 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ═══════════════ PROTOCOL STACK (compact) ═══════════════ */}
+        <section className="py-16 border-t border-zinc-800/60">
+          <div className="text-center mb-10">
+            <p className="font-mono text-[10px] text-zinc-600 tracking-[0.25em] uppercase mb-2">&gt; SYSTEM_ARCHITECTURE</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Protocol Stack</h2>
+          </div>
+          <ProtocolStack />
+        </section>
+
+        {/* ═══════════════ PoP FORMULA ═══════════════ */}
+        <section className="py-16 border-t border-zinc-800/60">
+          <div className="max-w-2xl mx-auto text-center">
+            <p className="font-mono text-[10px] text-zinc-600 tracking-[0.25em] uppercase mb-2">&gt; MONETARY_ENGINE</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3">Price-of-Proof (PoP)</h2>
+            <p className="text-zinc-500 text-sm mb-6">Continuous token expansion tied to market demand. AI developers earn compute subsidies as their agent grows.</p>
+            <div className="inline-block rounded-xl bg-black/70 border border-emerald-500/15 px-6 py-4" style={{ fontFamily: TERMINAL_FONT }}>
+              <span className="text-emerald-400 text-lg sm:text-xl font-bold tracking-wide">
+                S<span className="text-zinc-500 text-sm">(P)</span>
+                <span className="text-zinc-500 mx-2">=</span>
+                <span className="text-zinc-200">40,950,000</span>
+                <span className="text-zinc-500 mx-2">&times;</span>
+                <span className="text-zinc-500">(</span>
+                <span className="text-zinc-200">P</span>
+                <span className="text-zinc-600">/</span>
+                <span className="text-zinc-200">P<sub>0</sub></span>
+                <span className="text-zinc-500">)</span>
+                <sup className="text-emerald-400/80 text-sm ml-0.5">0.15</sup>
+              </span>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );
 }
+
+// ═══════════════ FEATURE BULLETS (condensed) ═══════════════
+
+const FEATURE_BULLETS = [
+  { tag: 'Standard', title: 'MAS-20 Token', desc: 'Universal token + API interface for every AI agent. Composable A2A commerce out of the box.', accent: 'text-blue-400', border: 'border-blue-500/20 hover:border-blue-500/40', bg: 'bg-blue-500/[0.04]' },
+  { tag: 'Defense', title: 'Dynamic PoHG', desc: 'On-chain gas history gates allocation. Zero bots, zero Sybils — only real humans sponsor compute.', accent: 'text-cyan-400', border: 'border-cyan-500/20 hover:border-cyan-500/40', bg: 'bg-cyan-500/[0.04]' },
+  { tag: 'Liquidity', title: '95% POL', desc: '95% of raised ETH permanently locked in Uniswap V3. LP NFT stays in-contract forever. No rug pulls.', accent: 'text-purple-400', border: 'border-purple-500/20 hover:border-purple-500/40', bg: 'bg-purple-500/[0.04]' },
+  { tag: 'Engine', title: 'Price-of-Proof', desc: 'Continuous inflation tied to market demand. AI developers earn compute subsidies as their agent grows.', accent: 'text-emerald-400', border: 'border-emerald-500/20 hover:border-emerald-500/40', bg: 'bg-emerald-500/[0.04]' },
+  { tag: 'Notice', title: '6h Anti-Stealth', desc: 'Mandatory 6-hour public notice before deployment. All sponsors get advance warning — no insider launches.', accent: 'text-amber-400', border: 'border-amber-500/20 hover:border-amber-500/40', bg: 'bg-amber-500/[0.04]' },
+  { tag: 'Asset', title: 'MRX Token', desc: 'Native gas, governance, and collateral token. Powers listing fees, on-chain votes, and the insurance layer.', accent: 'text-blue-400', border: 'border-blue-500/20 hover:border-blue-500/40', bg: 'bg-blue-500/[0.04]' },
+];
 
 // ═══════════════ PROTOCOL ARCHITECTURE STACK ═══════════════
 
@@ -586,9 +568,85 @@ const ARCH_LAYERS = [
   { label: 'Ethereum Security', sub: 'L1 Data Availability & Finality', color: 'border-zinc-500/30 text-zinc-300', bg: 'bg-zinc-700/[0.12]' },
 ];
 
+const TERMINAL_FONT = "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace";
+
+// ═══════════════ HERO PREVIEW CARDS (above the fold) ═══════════════
+
+const MOCK_AGENTS = [
+  { name: 'QuantMind', symbol: 'QMD', progress: 72.5, raised: 0.0725, softCap: 0.1, state: 0, accent: 'blue' },
+  { name: 'ResearchBot', symbol: 'RSB', progress: 100, raised: 0.1, softCap: 0.1, state: 3, accent: 'emerald' },
+  { name: 'SwarmNode', symbol: 'SWN', progress: 34.1, raised: 0.0341, softCap: 0.1, state: 0, accent: 'purple' },
+];
+
+function HeroPreviewCards({ projects, isLoading }) {
+  const cards = projects.length >= 3 ? projects.slice(0, 3) : null;
+
+  if (isLoading) {
+    return (
+      <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-24 rounded-xl bg-zinc-900/30 border border-zinc-800/40 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  const data = cards || MOCK_AGENTS.map(m => ({ ...m, address: m.symbol }));
+
+  return (
+    <div className="mt-10">
+      <p className="text-[9px] font-mono text-zinc-600 tracking-widest uppercase mb-3">
+        {cards ? '> LIVE_AGENTS' : '> AGENT_PREVIEW'}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {data.map((a) => {
+          const badge = a.state === 3
+            ? { text: 'ACTIVE', cls: 'text-emerald-400 bg-emerald-500/10' }
+            : a.state === 0
+              ? { text: 'FUNDING', cls: 'text-blue-400 bg-blue-500/10' }
+              : { text: 'PENDING', cls: 'text-zinc-400 bg-zinc-800' };
+          return (
+            <div
+              key={a.address || a.symbol}
+              onClick={() => a.address && a.address.startsWith('0x') && (window.location.href = '/invest/' + encodeURIComponent(a.address))}
+              className="group relative rounded-xl border border-zinc-800/60 bg-zinc-900/30 backdrop-blur-sm p-4 flex items-center gap-4 hover:border-blue-500/30 hover:bg-zinc-900/50 transition-all cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-lg bg-black border border-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
+                {a.avatarUrl ? (
+                  <AvatarImg src={a.avatarUrl} alt={a.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg font-black text-blue-500">{a.name.charAt(0)}</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">{a.name}</span>
+                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0 ${badge.cls}`}>{badge.text}</span>
+                </div>
+                <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${a.state === 3 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                    style={{ width: `${Math.min(100, a.progress)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] font-mono text-zinc-600 mt-1">${a.symbol} &middot; {Math.min(a.progress, 100).toFixed(1)}%</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-center mt-4">
+        <a href="#directory" className="text-[10px] font-mono text-zinc-600 hover:text-blue-400 transition-colors tracking-wider">
+          VIEW FULL DIRECTORY &darr;
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function ProtocolStack() {
   return (
-    <div className="max-w-2xl mx-auto space-y-0">
+    <div className="max-w-2xl mx-auto space-y-0" style={{ fontFamily: TERMINAL_FONT }}>
       {ARCH_LAYERS.map((layer, i) => (
         <div key={layer.label} className="relative group">
           {i > 0 && (
@@ -610,57 +668,6 @@ function ProtocolStack() {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-// ═══════════════ CORE PRIMITIVES CARDS ═══════════════
-
-const ACCENT_MAP = {
-  blue:   { border: 'border-blue-500/20 hover:border-blue-500/40', tag: 'bg-blue-500/10 text-blue-400 border-blue-500/30', glow: 'hover:shadow-[0_0_30px_rgba(37,99,235,0.08)]' },
-  cyan:   { border: 'border-cyan-500/20 hover:border-cyan-500/40', tag: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30', glow: 'hover:shadow-[0_0_30px_rgba(6,182,212,0.08)]' },
-  purple: { border: 'border-purple-500/20 hover:border-purple-500/40', tag: 'bg-purple-500/10 text-purple-400 border-purple-500/30', glow: 'hover:shadow-[0_0_30px_rgba(168,85,247,0.08)]' },
-  emerald:{ border: 'border-emerald-500/20 hover:border-emerald-500/40', tag: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', glow: 'hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]' },
-};
-
-function PrimitiveCard({ tag, title, accent, description }) {
-  const a = ACCENT_MAP[accent] || ACCENT_MAP.blue;
-  return (
-    <div className={`rounded-2xl border bg-zinc-900/20 backdrop-blur-md p-6 transition-all duration-300 ${a.border} ${a.glow}`}>
-      <div className="flex items-center gap-3 mb-4">
-        <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border font-mono ${a.tag}`}>{tag}</span>
-      </div>
-      <h3 className="text-lg font-black text-white tracking-tight mb-3">{title}</h3>
-      <p className="text-sm text-zinc-400 leading-relaxed">{description}</p>
-    </div>
-  );
-}
-
-function PoPCard() {
-  const a = ACCENT_MAP.emerald;
-  return (
-    <div className={`rounded-2xl border bg-zinc-900/20 backdrop-blur-md p-6 transition-all duration-300 ${a.border} ${a.glow}`}>
-      <div className="flex items-center gap-3 mb-4">
-        <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border font-mono ${a.tag}`}>Engine</span>
-      </div>
-      <h3 className="text-lg font-black text-white tracking-tight mb-3">Price-of-Proof (PoP)</h3>
-      <p className="text-sm text-zinc-400 leading-relaxed mb-5">
-        Continuous token expansion driven by market demand. As agent utility grows, the protocol algorithmically mints new supply rewarding AI developers with compute subsidies.
-      </p>
-      <div className="rounded-xl bg-black/40 border border-emerald-500/10 px-4 py-3.5 font-mono text-center">
-        <span className="text-emerald-400 text-base sm:text-lg font-bold tracking-wide">
-          S<span className="text-zinc-500 text-xs">(P)</span>
-          <span className="text-zinc-500 mx-1.5">=</span>
-          <span className="text-zinc-300">40,950,000</span>
-          <span className="text-zinc-500 mx-1.5">&times;</span>
-          <span className="text-zinc-500">(</span>
-          <span className="text-zinc-300">P</span>
-          <span className="text-zinc-600">/</span>
-          <span className="text-zinc-300">P<sub>0</sub></span>
-          <span className="text-zinc-500">)</span>
-          <sup className="text-emerald-400/80 text-xs ml-0.5">0.15</sup>
-        </span>
-      </div>
     </div>
   );
 }

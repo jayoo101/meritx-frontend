@@ -451,8 +451,8 @@ export default function Navbar() {
                 <span className="text-zinc-400 group-hover:text-white transition-colors">{account.slice(0, 6)}...{account.slice(-4)}</span>
               </button>
             ) : (
-              <button onClick={connectWallet} className="px-4 py-1.5 rounded-lg border border-blue-500/40 text-blue-400 text-xs font-bold hover:bg-blue-600 hover:text-white transition-all">
-                Connect Wallet
+              <button onClick={connectWallet} className="px-4 py-1.5 rounded-lg border border-blue-500/40 text-blue-400 text-xs font-bold hover:bg-blue-600 hover:text-white transition-all animate-[pulseGlow_2s_ease-in-out_infinite] shadow-[0_0_8px_rgba(59,130,246,0.3)]">
+                Connect &amp; Verify PoHG
               </button>
             )}
           </div>

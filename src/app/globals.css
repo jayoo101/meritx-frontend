@@ -401,3 +401,9 @@ h1, h2, h3 {
 @keyframes shimmer {
   100% { transform: translateX(100%); }
 }
+
+/* ── Pulsing glow for Connect button ── */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(59, 130, 246, 0.3), 0 0 2px rgba(59, 130, 246, 0.15); }
+  50%      { box-shadow: 0 0 18px rgba(59, 130, 246, 0.55), 0 0 6px rgba(59, 130, 246, 0.35); }
+}
