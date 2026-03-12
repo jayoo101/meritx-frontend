@@ -64,16 +64,16 @@ const AGENTS = {
     name: 'BaseGuard_Sentinel',
     symbol: 'SENT',
     address: '0x5e41ae1300000000000000000000000000000003',
-    state: 0,
+    state: 2,
     description: 'Security Audit Agent. The first sentinel node deployed via PoHG Sybil-defense protocol. Monitors all new contract deployments on Base for known exploit patterns and rug-pull signatures.',
-    totalFunded: '0.000 ETH',
+    totalFunded: '0.100 ETH',
     tvl: '—',
     softCap: '0.1 ETH',
-    progress: 0,
-    pohgVerified: false,
+    progress: 100,
+    pohgVerified: true,
     masEndpoint: 'https://api.meritx.io/v1/agents/sent/mas20',
-    status: 'UPCOMING',
-    statusColor: 'amber',
+    status: 'INITIALIZING',
+    statusColor: 'purple',
     deployedAt: null,
     txCount: 0,
     uptime: '—',
@@ -101,6 +101,7 @@ const STATUS_STYLES = {
   emerald: { badge: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400', glow: 'shadow-[0_0_6px_rgba(52,211,153,0.7)]' },
   blue:    { badge: 'text-blue-400 bg-blue-500/10 border-blue-500/20',          dot: 'bg-blue-400',    glow: 'shadow-[0_0_6px_rgba(96,165,250,0.7)]' },
   amber:   { badge: 'text-amber-400 bg-amber-500/10 border-amber-500/20',       dot: 'bg-amber-400',   glow: 'shadow-[0_0_6px_rgba(251,191,36,0.7)]' },
+  purple:  { badge: 'text-purple-400 bg-purple-500/10 border-purple-500/20',    dot: 'bg-purple-400',  glow: 'shadow-[0_0_6px_rgba(192,132,252,0.7)]' },
 };
 
 const PROTOCOL_FEED_ENTRIES = [
@@ -308,19 +309,26 @@ export default function AgentDetailPage() {
 
             {/* Fund Button */}
             <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-5 space-y-4">
-              <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">{agent.state === 3 ? 'Agent Operations' : 'Sponsor Compute'}</p>
+              <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">{agent.state === 3 ? 'Agent Operations' : agent.state === 2 ? 'Deployment Queue' : 'Sponsor Compute'}</p>
               <button className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all shadow-lg ${
                 agent.state === 3
                   ? 'text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 shadow-emerald-600/20 hover:shadow-emerald-500/30'
                   : agent.state === 0
                     ? 'text-white bg-blue-600 hover:bg-blue-500 border border-blue-500 shadow-blue-600/20 hover:shadow-blue-500/30'
+                  : agent.state === 2
+                    ? 'text-white bg-purple-600 hover:bg-purple-500 border border-purple-500 shadow-purple-600/20 hover:shadow-purple-500/30'
                     : 'text-zinc-400 bg-zinc-800 border border-zinc-700 cursor-not-allowed shadow-none'
               }`}>
-                {agent.state === 3 ? 'View Agent Dashboard' : agent.state === 0 ? 'Fund this Agent' : 'Coming Soon'}
+                {agent.state === 3 ? 'View Agent Dashboard' : agent.state === 0 ? 'Fund this Agent' : agent.state === 2 ? 'Initializing...' : 'Coming Soon'}
               </button>
               {agent.state === 0 && (
-                <p className="text-[10px] text-zinc-600 font-mono text-center">
+                <p className="text-[10px] text-zinc-500 font-mono text-center">
                   PoHG verification required &middot; Min 0.001 ETH
+                </p>
+              )}
+              {agent.state === 2 && (
+                <p className="text-[10px] text-purple-400/70 font-mono text-center">
+                  Soft Cap reached &middot; Deploying liquidity pool
                 </p>
               )}
             </div>

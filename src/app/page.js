@@ -242,6 +242,7 @@ export default function Home() {
     for (const seed of SEED_AGENTS) {
       if (onChainAddrs.has(seed.address)) continue;
       if (seed.state === 0) live.push(seed);
+      else if (seed.state === 2) launching.push(seed);
       else if (seed.state === 3) completed.push(seed);
     }
 
@@ -296,7 +297,7 @@ export default function Home() {
               The Settlement Protocol for{' '}
               <span className="text-blue-500">Autonomous AI Economies.</span>
             </h1>
-            <p className="text-white/40 text-sm sm:text-base max-w-xl leading-relaxed mb-8">
+            <p className="text-zinc-400 text-sm sm:text-base max-w-xl leading-relaxed mb-8">
               The internet is approaching a singularity. We provide the base-layer infrastructure for Agent-to-Agent (A2A) commerce, powered by the Price-of-Proof consensus.
             </p>
             <div className="flex flex-wrap gap-3">
@@ -351,7 +352,7 @@ export default function Home() {
           {!error && (
             <div className="flex items-center gap-2 mb-6">
               <span className={`w-2 h-2 rounded-full ${isValidating ? 'bg-blue-500 animate-pulse' : 'bg-blue-500/40'}`} />
-              <span className="text-[10px] font-mono text-zinc-600 tracking-wider">
+              <span className="text-[10px] font-mono text-zinc-500 tracking-wider">
                 {isValidating && isFirstLoad
                   ? 'Scanning IAOs...'
                   : isValidating
@@ -430,14 +431,14 @@ export default function Home() {
                 >
                   {tabProjects.length === 0 ? (
                     <div className="text-center py-20 space-y-3">
-                      <p className="text-zinc-600 font-mono text-sm">
-                        {activeTab === 'live' && 'No agents currently in IAO.'}
+                      <p className="text-zinc-500 font-mono text-sm">
+                        {activeTab === 'live' && 'Searching for active protocols...'}
                         {activeTab === 'launching' && 'No agents initializing.'}
                         {activeTab === 'completed' && 'No active agents yet.'}
                         {activeTab === 'archived' && 'No archived agents.'}
                       </p>
                       {activeTab === 'live' && (
-                        <a href="/launch" className="text-blue-400 text-xs font-bold hover:underline">Launch the first IAO &rarr;</a>
+                        <Link href="/launch" className="text-blue-400 text-xs font-bold hover:underline">Launch IAO &rarr;</Link>
                       )}
                     </div>
                   ) : (
@@ -495,7 +496,7 @@ export default function Home() {
                                   style={{ width: `${Math.min(100, p.progress)}%` }}
                                 />
                               </div>
-                              <div className="flex justify-between text-[10px] font-mono text-zinc-600">
+                              <div className="flex justify-between text-[10px] font-mono text-zinc-500">
                                 <span>Raised: {p.raised.toFixed(4)} ETH</span>
                                 <span>Target: {p.softCap.toFixed(4)} ETH</span>
                               </div>
@@ -537,7 +538,7 @@ export default function Home() {
               <div key={f.title} className={`rounded-xl border p-5 transition-all duration-300 hover:scale-[1.01] ${f.border} ${f.bg}`}>
                 <p className={`text-[9px] font-bold uppercase tracking-widest font-mono mb-2 ${f.accent}`}>{f.tag}</p>
                 <h3 className="text-sm font-black text-white mb-1.5">{f.title}</h3>
-                <p className="text-[12px] text-zinc-300/70 leading-relaxed">{f.desc}</p>
+                <p className="text-[12px] text-zinc-300 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -557,7 +558,7 @@ export default function Home() {
           <div className="max-w-2xl mx-auto text-center">
             <p className="font-mono text-[10px] text-zinc-600 tracking-[0.25em] uppercase mb-2">&gt; MONETARY_ENGINE</p>
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3">Price-of-Proof (PoP)</h2>
-            <p className="text-zinc-500 text-sm mb-6">Continuous token expansion tied to market demand. AI developers earn compute subsidies as their agent grows.</p>
+            <p className="text-zinc-400 text-sm mb-6">Continuous token expansion tied to market demand. AI developers earn compute subsidies as their agent grows.</p>
             <div className="inline-block rounded-xl bg-black/70 border border-emerald-500/15 px-6 py-4" style={{ fontFamily: TERMINAL_FONT }}>
               <span className="text-emerald-400 text-lg sm:text-xl font-bold tracking-wide">
                 S<span className="text-zinc-500 text-sm">(P)</span>
@@ -640,11 +641,11 @@ const SEED_AGENTS = [
     address: '0x5e41ae1300000000000000000000000000000003',
     name: 'BaseGuard_Sentinel',
     symbol: 'SENT',
-    state: 0,
-    raised: 0,
+    state: 2,
+    raised: 0.1,
     softCap: 0.1,
-    progress: 0,
-    endTime: _now + 72 * 3_600_000,
+    progress: 100,
+    endTime: _now - 1 * 3_600_000,
     avatarUrl: null,
     description: 'Security Audit Agent. The first sentinel node deployed via PoHG Sybil-defense protocol.',
     _seed: true,
