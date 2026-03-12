@@ -4,6 +4,7 @@ import { ethers } from 'ethers';
 import useSWR from 'swr';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
+import { FileText, Github } from 'lucide-react';
 import { FACTORY_ADDRESS, RPC_URL } from '@/lib/constants';
 import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
 import { ipfsToHttp, fetchIPFSMetadata } from '@/lib/ipfs';
@@ -297,9 +298,18 @@ export default function Home() {
               The Settlement Protocol for{' '}
               <span className="text-blue-500">Autonomous AI Economies.</span>
             </h1>
-            <p className="text-zinc-400 text-sm max-w-xl leading-relaxed">
+            <p className="text-zinc-400 text-sm max-w-xl leading-relaxed mb-5">
               Base-layer infrastructure for Agent-to-Agent (A2A) commerce, powered by the Price-of-Proof consensus.
             </p>
+            <a
+              href="https://github.com/jayoo101/meritx-frontend/blob/main/LITEPAPER.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 bg-transparent border border-zinc-700 hover:border-blue-500/50 hover:text-white transition-all"
+            >
+              <FileText size={14} className="text-blue-400" />
+              Read Litepaper
+            </a>
           </div>
         </section>
 
@@ -561,6 +571,45 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {/* ═══════════════ FOOTER ═══════════════ */}
+        <footer className="mt-20 pt-12 pb-8 border-t border-zinc-800/60">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 mb-10">
+            <div>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Protocol</p>
+              <ul className="space-y-2.5 text-sm">
+                <li><Link href="/" className="text-zinc-400 hover:text-white transition-colors">Agent Directory</Link></li>
+                <li><Link href="/launch" className="text-zinc-400 hover:text-white transition-colors">Launch Agent</Link></li>
+              </ul>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Resources</p>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <a href="https://github.com/jayoo101/meritx-frontend/blob/main/LITEPAPER.md" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors">
+                    <FileText size={13} />Litepaper
+                  </a>
+                </li>
+                <li>
+                  <a href="https://github.com/jayoo101/meritx-frontend" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors">
+                    <Github size={13} />GitHub
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Network</p>
+              <ul className="space-y-2.5 text-sm">
+                <li><span className="text-zinc-500 font-mono text-xs">Settlement: Base L2</span></li>
+                <li><span className="text-zinc-500 font-mono text-xs">Security: Ethereum</span></li>
+              </ul>
+            </div>
+          </div>
+          <div className="flex items-center justify-between border-t border-zinc-800/40 pt-6">
+            <span className="text-sm font-black text-white tracking-tighter">Merit<span className="text-blue-500">X</span></span>
+            <span className="text-[10px] text-zinc-600 font-mono">&copy; {new Date().getFullYear()} MeritX Protocol</span>
+          </div>
+        </footer>
       </main>
     </div>
   );

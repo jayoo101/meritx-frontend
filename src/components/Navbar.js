@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Github, FileText } from 'lucide-react';
 import { fmtEth, truncAddr } from '@/lib/fmt';
 import {
   FACTORY_ADDRESS,
@@ -440,6 +441,14 @@ export default function Navbar() {
                 Whitepaper
               </Link>
               */}
+              <a href="https://github.com/jayoo101/meritx-frontend/blob/main/LITEPAPER.md" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-300 transition-colors">
+                <FileText size={13} />
+                Litepaper
+              </a>
+              <a href="https://github.com/jayoo101/meritx-frontend" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-300 transition-colors">
+                <Github size={13} />
+                GitHub
+              </a>
             </div>
           </div>
           <div className="flex items-center gap-3">
