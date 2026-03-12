@@ -317,8 +317,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Above-the-fold preview: 3 condensed agent cards */}
-          <HeroPreviewCards projects={projects} isLoading={isFirstLoad && !error} />
+          {/* Above-the-fold preview: always visible, never gated by loading */}
+          <HeroPreviewCards projects={projects} />
         </section>
 
         {/* ═══════════════ AGENT DIRECTORY (Function First) ═══════════════ */}
@@ -572,64 +572,105 @@ const TERMINAL_FONT = "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code'
 
 // ═══════════════ HERO PREVIEW CARDS (above the fold) ═══════════════
 
-const MOCK_AGENTS = [
-  { name: 'QuantMind', symbol: 'QMD', progress: 72.5, raised: 0.0725, softCap: 0.1, state: 0, accent: 'blue' },
-  { name: 'ResearchBot', symbol: 'RSB', progress: 100, raised: 0.1, softCap: 0.1, state: 3, accent: 'emerald' },
-  { name: 'SwarmNode', symbol: 'SWN', progress: 34.1, raised: 0.0341, softCap: 0.1, state: 0, accent: 'purple' },
+const SHOWCASE_AGENTS = [
+  {
+    id: 'malpha',
+    name: 'Merit-Alpha-01',
+    symbol: 'MALPHA',
+    progress: 82,
+    status: 'ACTIVE',
+    state: 3,
+    description: 'Autonomous High-Frequency Liquidity Provider. Executes cross-dex arbitrage on Base using MAS-20 settlement.',
+  },
+  {
+    id: 'dscan',
+    name: 'DeepScan_Base_GPT',
+    symbol: 'DSCAN',
+    progress: 45,
+    status: 'IAO_LIVE',
+    state: 0,
+    description: 'On-chain Research Agent. Autonomously purchases premium RPC compute via PoHG-verified gateways.',
+  },
+  {
+    id: 'sent',
+    name: 'BaseGuard_Sentinel',
+    symbol: 'SENT',
+    progress: 0,
+    status: 'UPCOMING',
+    state: -1,
+    description: 'Security Audit Agent. The first sentinel node deployed via PoHG Sybil-defense protocol.',
+  },
 ];
 
-function HeroPreviewCards({ projects, isLoading }) {
-  const cards = projects.length >= 3 ? projects.slice(0, 3) : null;
+const HERO_BADGE_MAP = {
+  ACTIVE:   { text: 'ACTIVE',   cls: 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20', pulse: true },
+  IAO_LIVE: { text: 'IAO LIVE', cls: 'text-blue-400 bg-blue-500/10 border border-blue-500/20',        pulse: false },
+  UPCOMING: { text: 'UPCOMING', cls: 'text-amber-400 bg-amber-500/10 border border-amber-500/20',     pulse: false },
+};
 
-  if (isLoading) {
-    return (
-      <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-24 rounded-xl bg-zinc-900/30 border border-zinc-800/40 animate-pulse" />
-        ))}
-      </div>
-    );
-  }
+function HeroPreviewCards({ projects }) {
+  const liveCards = (projects || []).length >= 3 ? projects.slice(0, 3) : null;
 
-  const data = cards || MOCK_AGENTS.map(m => ({ ...m, address: m.symbol }));
+  const data = liveCards
+    ? liveCards.map(p => ({
+        id: p.address,
+        name: p.name,
+        symbol: p.symbol,
+        progress: p.progress,
+        status: p.state === 3 ? 'ACTIVE' : p.state === 0 ? 'IAO_LIVE' : 'UPCOMING',
+        state: p.state,
+        description: p.description || '',
+        avatarUrl: p.avatarUrl,
+        isLive: true,
+      }))
+    : SHOWCASE_AGENTS;
 
   return (
     <div className="mt-10">
       <p className="text-[9px] font-mono text-zinc-600 tracking-widest uppercase mb-3">
-        {cards ? '> LIVE_AGENTS' : '> AGENT_PREVIEW'}
+        {liveCards ? '> LIVE_AGENTS' : '> DEPLOYED_AGENTS'}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {data.map((a) => {
-          const badge = a.state === 3
-            ? { text: 'ACTIVE', cls: 'text-emerald-400 bg-emerald-500/10' }
-            : a.state === 0
-              ? { text: 'FUNDING', cls: 'text-blue-400 bg-blue-500/10' }
-              : { text: 'PENDING', cls: 'text-zinc-400 bg-zinc-800' };
+          const badge = HERO_BADGE_MAP[a.status] || HERO_BADGE_MAP.UPCOMING;
+          const pct = Math.min(100, a.progress);
           return (
             <div
-              key={a.address || a.symbol}
-              onClick={() => a.address && a.address.startsWith('0x') && (window.location.href = '/invest/' + encodeURIComponent(a.address))}
-              className="group relative rounded-xl border border-zinc-800/60 bg-zinc-900/30 backdrop-blur-sm p-4 flex items-center gap-4 hover:border-blue-500/30 hover:bg-zinc-900/50 transition-all cursor-pointer"
+              key={a.id}
+              onClick={() => a.isLive && a.id?.startsWith('0x') && (window.location.href = '/invest/' + encodeURIComponent(a.id))}
+              className="group relative rounded-xl border border-zinc-800/60 bg-zinc-900/40 backdrop-blur-sm p-4 hover:border-blue-500/30 hover:bg-zinc-900/60 transition-all cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-black border border-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
-                {a.avatarUrl ? (
-                  <AvatarImg src={a.avatarUrl} alt={a.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-lg font-black text-blue-500">{a.name.charAt(0)}</span>
-                )}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-lg bg-black border border-zinc-800 flex items-center justify-center shrink-0">
+                  {a.avatarUrl ? (
+                    <AvatarImg src={a.avatarUrl} alt={a.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-base font-black text-blue-500">{a.name.charAt(0)}</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">{a.name}</span>
+                  <span className="text-[10px] font-mono text-zinc-600">${a.symbol}</span>
+                </div>
+                <span className={`flex items-center gap-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0 ${badge.cls}`}>
+                  {badge.pulse && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />}
+                  {badge.text}
+                </span>
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">{a.name}</span>
-                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0 ${badge.cls}`}>{badge.text}</span>
-                </div>
-                <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${a.state === 3 ? 'bg-emerald-500' : 'bg-blue-600'}`}
-                    style={{ width: `${Math.min(100, a.progress)}%` }}
-                  />
-                </div>
-                <p className="text-[10px] font-mono text-zinc-600 mt-1">${a.symbol} &middot; {Math.min(a.progress, 100).toFixed(1)}%</p>
+
+              <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 mb-3 min-h-[32px]">{a.description}</p>
+
+              <div className="w-full h-1.5 bg-zinc-800/80 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]"
+                  style={{ width: `${pct}%`, transition: 'width 1s ease-out' }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="text-[10px] font-mono text-zinc-600">{pct.toFixed(1)}% funded</span>
+                {a.status === 'ACTIVE' && <span className="text-[9px] font-mono text-emerald-500/70">Generating yield</span>}
+                {a.status === 'IAO_LIVE' && <span className="text-[9px] font-mono text-blue-400/70">Accepting sponsors</span>}
+                {a.status === 'UPCOMING' && <span className="text-[9px] font-mono text-amber-400/60">Pending PoHG gate</span>}
               </div>
             </div>
           );
