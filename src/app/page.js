@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, useMemo, Component } from 'react';
+import { useState, useEffect, useMemo, Component, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ethers } from 'ethers';
 import useSWR from 'swr';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -189,6 +190,22 @@ function readHiddenMap() {
   try { return JSON.parse(localStorage.getItem('meritx-hidden-projects') || '{}'); } catch { return {}; }
 }
 
+function isValidEvmAddress(addr) {
+  return /^0x[0-9a-fA-F]{40}$/.test(addr);
+}
+
+function ReferralCapture() {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref && isValidEvmAddress(ref)) {
+      localStorage.setItem('meritx_referrer', ref);
+      console.log('[MeritX] Referrer captured:', ref);
+    }
+  }, [searchParams]);
+  return null;
+}
+
 export default function Home() {
   const { data: allProjects, error, isValidating, mutate } = useSWR(
     'meritx-projects',
@@ -285,6 +302,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen font-sans selection:bg-blue-600/30" style={{ background: '#050505' }}>
+      <Suspense fallback={null}><ReferralCapture /></Suspense>
       <main className="max-w-6xl mx-auto px-4 pb-24 text-zinc-300">
 
         {/* ═══════════════ HERO ═══════════════ */}
