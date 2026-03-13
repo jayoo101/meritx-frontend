@@ -24,11 +24,11 @@ function genChains(tx) {
 
 function fmt(n) { return n.toLocaleString('en-US', { maximumFractionDigits: 0 }); }
 
-function rankOf(g) {
-  if (g >= 5)   return { label: 'Legend',   color: 'text-amber-400' };
-  if (g >= 1)   return { label: 'Veteran',  color: 'text-blue-400' };
-  if (g >= 0.1) return { label: 'Builder',  color: 'text-purple-400' };
-  return { label: 'Explorer', color: 'text-gray-400' };
+function rankLabel(g) {
+  if (g >= 5)   return 'CARBON LEGEND';
+  if (g >= 1)   return 'EVM VETERAN';
+  if (g >= 0.1) return 'BUILDER';
+  return 'EXPLORER';
 }
 
 function useCountdown(endMs) {
@@ -76,7 +76,7 @@ export default function CarbonPassportModal() {
     let txCount = 5;
     try { const h = await window.ethereum.request({ method: 'eth_getTransactionCount', params: [addr, 'latest'] }); txCount = parseInt(h, 16) || 5; } catch { /* default */ }
 
-    await new Promise(r => setTimeout(r, 1800));
+    await new Promise(r => setTimeout(r, 2000));
 
     const chains = genChains(txCount);
     const total = parseFloat(chains.reduce((s, c) => s + c.gas, 0).toFixed(4));
@@ -85,17 +85,17 @@ export default function CarbonPassportModal() {
     setPhase(PHASES.RESULT);
   }, []);
 
-  const rank = rankOf(gasSpent);
+  const rank = rankLabel(gasSpent);
   const trAddr = account ? `${account.slice(0, 6)}...${account.slice(-4)}` : '0x0000...0000';
   const refLink = account ? `${siteOrigin}/?ref=${account}` : siteOrigin;
-  const ogUrl = `${siteOrigin}/api/og?address=${encodeURIComponent(account)}&meritAmount=${meritReward}&rank=${encodeURIComponent(rank.label)}`;
-  const wcText = `I just verified my Superchain Citizen identity on @MeritX. ${fmt(meritReward)} $MERIT unlocked based on my EVM gas history. 8% referral bonus.\n\n${refLink}`;
+  const ogUrl = `${siteOrigin}/api/og?address=${encodeURIComponent(account)}&meritAmount=${meritReward}&rank=${encodeURIComponent(rank)}`;
+  const wcText = `I just verified my Carbon Identity on @MeritX on Base. I unlocked ${fmt(meritReward)} $MERIT based on my gas history. Invite friends for 8% bonus. They keep 100%.\n\n${refLink}`;
   const wcUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(wcText)}&embeds[]=${encodeURIComponent(ogUrl)}`;
-  const twText = `My Superchain Citizen card is live. ${fmt(meritReward)} $MERIT earned on @MeritX_ai via gas history. #MeritX #Base\n\n${refLink}`;
+  const twText = `I just verified my Carbon Identity on @MeritX_ai. My gas history earned me ${fmt(meritReward)} $MERIT on Base. #MeritX #Base\n\n${refLink}`;
   const twUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twText)}`;
 
   const copyLink = useCallback(() => {
-    navigator.clipboard.writeText(refLink).then(() => { setCopied(true); toast.success('Referral link copied.'); setTimeout(() => setCopied(false), 2000); });
+    navigator.clipboard.writeText(refLink).then(() => { setCopied(true); toast.success('Link copied.'); setTimeout(() => setCopied(false), 2000); });
   }, [refLink]);
 
   const isResult = phase === PHASES.RESULT;
@@ -103,15 +103,15 @@ export default function CarbonPassportModal() {
 
   return (
     <>
-      {/* ── Floating re-open pill ── */}
+      {/* ── Floating re-open widget ── */}
       {!open && (
         <div
-          className="fixed bottom-5 left-5 z-[90] cursor-pointer rounded-2xl bg-neutral-900 border border-white/10 px-5 py-3 shadow-xl hover:border-white/20 transition-all"
+          className="fixed bottom-5 left-5 z-[90] cursor-pointer rounded-2xl border border-blue-500/30 bg-gradient-to-br from-slate-900 to-black px-5 py-3 shadow-[0_0_30px_rgba(0,82,255,0.12)] hover:border-blue-400/50 transition-all"
           onClick={reopen}
         >
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest">Superchain Citizen</p>
-          <p className="text-sm text-white font-bold tabular-nums mt-0.5">
-            {cd.expired ? 'Closed' : `${cd.h}h ${cd.m}m ${cd.s}s`}
+          <p className="text-[10px] text-blue-400 uppercase tracking-widest font-medium">Carbon Passport</p>
+          <p className="text-sm text-white font-bold tabular-nums mt-0.5 font-mono">
+            {cd.expired ? 'CLOSED' : `${cd.h}H : ${cd.m}M : ${cd.s}S`}
           </p>
         </div>
       )}
@@ -119,203 +119,238 @@ export default function CarbonPassportModal() {
       {/* ── Modal ── */}
       <AnimatePresence>
         {open && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={dismiss} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
 
+            {/* Backdrop click */}
+            <div className="absolute inset-0" onClick={dismiss} />
+
+            {/* Main Modal Container */}
             <div
-              className="relative w-[90vw] max-w-5xl h-[80vh] flex flex-col md:flex-row rounded-3xl overflow-hidden bg-neutral-950 border border-white/10 shadow-2xl"
+              className="relative w-full max-w-6xl h-auto md:h-[80vh] flex flex-col md:flex-row rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 to-black border border-blue-500/30 shadow-[0_0_80px_rgba(0,82,255,0.15)]"
               onClick={e => e.stopPropagation()}
             >
               {/* Close */}
-              <button onClick={dismiss} className="absolute top-4 right-5 z-10 text-gray-500 hover:text-white transition-colors text-sm">✕</button>
+              <button onClick={dismiss} className="absolute top-4 right-5 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors text-lg">✕</button>
 
-              {/* ═══ LEFT: Card Visualizer ═══ */}
-              <div className="w-full md:w-1/2 h-[45%] md:h-full p-6 md:p-10 flex justify-center items-center bg-gradient-to-br from-zinc-900 to-black relative overflow-hidden">
-                {/* Ambient glow */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] h-[340px] rounded-full opacity-[0.07]" style={{ background: 'radial-gradient(circle, #0052FF 0%, transparent 70%)' }} />
+              {/* ═══ LEFT COLUMN: Dashboard (2/5) ═══ */}
+              <div className="w-full md:w-2/5 h-auto md:h-full p-8 md:p-10 flex flex-col border-b md:border-b-0 md:border-r border-white/5 bg-black/20">
 
-                {/* The Physical Card */}
-                <div className="w-full max-w-md aspect-[1.58/1] rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-tr from-gray-800 via-zinc-900 to-black border border-gray-600/50 shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
-                  {/* Watermark */}
-                  <span className="absolute -right-8 -bottom-8 text-white/[0.03] text-[180px] font-black leading-none select-none pointer-events-none">M</span>
+                {/* Header */}
+                <div className="flex items-start gap-3 mb-8">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(0,82,255,0.2)]">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-white font-bold text-lg tracking-tight leading-tight">CARBON IDENTITY PASSPORT</h2>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-[0.15em] mt-0.5">Anti-Sybil Verification</p>
+                  </div>
+                </div>
 
-                  {/* Subtle noise texture */}
-                  <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }} />
+                {/* FOMO Countdown */}
+                <div className="mb-8">
+                  <p className="text-[10px] text-green-500/80 font-mono uppercase tracking-widest mb-2">{'/// UPLINK CLOSES IN ///'}</p>
+                  <p className="text-4xl md:text-5xl text-green-400 font-bold font-mono tabular-nums tracking-wider" style={{ textShadow: '0 0 25px rgba(74,222,128,0.3)' }}>
+                    {cd.expired ? '00H : 00M : 00S' : `${cd.h}H : ${cd.m}M : ${cd.s}S`}
+                  </p>
+                </div>
 
-                  {/* Top row */}
-                  <div className="flex items-start justify-between relative z-[1]">
+                {/* Scan button */}
+                {phase === PHASES.IDLE && (
+                  <button
+                    onClick={runScanner}
+                    disabled={cd.expired}
+                    className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-blue-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,82,255,0.3)] mb-8"
+                  >
+                    {cd.expired ? 'Event Closed' : 'Verify Identity'}
+                  </button>
+                )}
+
+                {isScanning && (
+                  <div className="flex items-center gap-3 mb-8 py-2">
+                    <div className="w-5 h-5 rounded-full border-2 border-blue-800 border-t-blue-400 animate-spin" />
+                    <p className="text-sm text-gray-400">Querying 5 EVM networks...</p>
+                  </div>
+                )}
+
+                {/* Terminal Gas Log */}
+                <div className="flex-1 min-h-0">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">EVM Gas Footprint</p>
+                  <div className="space-y-1.5 font-mono text-xs">
+                    {isResult ? (
+                      <>
+                        {chainData.map(c => (
+                          <div key={c.id} className="flex justify-between">
+                            <span className="text-gray-500">{c.label}</span>
+                            <span className="text-gray-400 tabular-nums">{c.gas.toFixed(4)} ETH</span>
+                          </div>
+                        ))}
+                        <div className="h-px bg-white/5 my-2" />
+                        <div className="flex justify-between">
+                          <span className="text-white font-bold">TOTAL COMBINED GAS</span>
+                          <span className="text-white font-bold tabular-nums">{gasSpent.toFixed(4)} ETH</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {CHAINS.map(c => (
+                          <div key={c.id} className="flex justify-between">
+                            <span className="text-gray-600">{c.label}</span>
+                            <span className="text-gray-700 tabular-nums">—</span>
+                          </div>
+                        ))}
+                        <div className="h-px bg-white/5 my-2" />
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">TOTAL</span>
+                          <span className="text-gray-700">—</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status line */}
+                {isResult && (
+                  <p className="text-[9px] text-green-500/70 font-mono uppercase tracking-wider mt-4 leading-relaxed">
+                    {'STATUS: [APPROVED] — NO SYBIL DETECTED'}
+                  </p>
+                )}
+              </div>
+
+              {/* ═══ RIGHT COLUMN: Sapphire Card & Actions (3/5) ═══ */}
+              <div className="w-full md:w-3/5 h-auto md:h-full p-8 md:p-10 flex flex-col justify-between relative">
+
+                {/* The 3D Sapphire Glass Card */}
+                <div className="w-full aspect-[2/1] rounded-2xl bg-blue-950/20 backdrop-blur-xl border border-blue-400/20 shadow-[inset_0_0_30px_rgba(0,82,255,0.1),0_0_40px_rgba(0,82,255,0.08)] p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group">
+
+                  {/* Scan line effect */}
+                  <div
+                    className="absolute left-0 w-full h-[2px] pointer-events-none z-[1]"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent 0%, rgba(59,130,246,0.6) 30%, rgba(59,130,246,0.8) 50%, rgba(59,130,246,0.6) 70%, transparent 100%)',
+                      animation: 'sapphire-scan 4s ease-in-out infinite',
+                      boxShadow: '0 0 12px rgba(59,130,246,0.4)',
+                    }}
+                  />
+
+                  {/* Subtle grid texture */}
+                  <div
+                    className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                    style={{
+                      backgroundImage: 'linear-gradient(rgba(59,130,246,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.3) 1px, transparent 1px)',
+                      backgroundSize: '40px 40px',
+                    }}
+                  />
+
+                  {/* Card top */}
+                  <div className="flex items-start justify-between relative z-[2]">
                     <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-medium">Superchain Citizen</p>
-                      <p className="text-[8px] text-gray-600 uppercase tracking-widest mt-0.5">MeritX · Base L2</p>
+                      <p className="text-[10px] text-blue-400 uppercase tracking-[0.2em] font-medium">MERITX PROTOCOL</p>
+                      <p className="text-[8px] text-blue-600 uppercase tracking-widest mt-0.5">BASE L2</p>
                     </div>
                     {isResult && (
-                      <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.3)]">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                       </div>
                     )}
                   </div>
 
-                  {/* Center — reward */}
-                  <div className="flex-1 flex flex-col justify-center relative z-[1]">
+                  {/* Card center — reward */}
+                  <div className="flex-1 flex flex-col justify-center relative z-[2]">
                     {isResult ? (
                       <>
-                        <p className="text-5xl sm:text-6xl font-black text-white tracking-tighter leading-none">
-                          {fmt(meritReward)} <span className="text-xl text-gray-400 font-normal">$MERIT</span>
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2 uppercase tracking-widest">Verified Allocation</p>
+                        <div className="text-5xl md:text-6xl font-black text-[#00FF00] tracking-tighter leading-none" style={{ filter: 'drop-shadow(0 0 20px rgba(0,255,0,0.4))' }}>
+                          {fmt(meritReward)} <span className="text-2xl text-green-600 font-normal">$MERIT</span>
+                        </div>
+                        <p className="text-xs text-green-500/60 mt-2 uppercase tracking-widest font-mono">Verified Allocation</p>
                       </>
                     ) : isScanning ? (
-                      <>
-                        <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 rounded-full border-2 border-gray-600 border-t-white animate-spin" />
-                          <p className="text-sm text-gray-400">Verifying identity...</p>
-                        </div>
-                      </>
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full border-2 border-blue-800 border-t-blue-400 animate-spin" />
+                        <p className="text-sm text-blue-400/60">Scanning EVM footprint...</p>
+                      </div>
                     ) : (
                       <>
-                        <p className="text-3xl font-black text-gray-700 tracking-tighter">— — —</p>
-                        <p className="text-xs text-gray-600 mt-2 uppercase tracking-widest">Connect wallet to verify</p>
+                        <p className="text-4xl font-black text-gray-700/50 tracking-tighter">— — —</p>
+                        <p className="text-xs text-gray-600 mt-2 uppercase tracking-widest">Awaiting verification</p>
                       </>
                     )}
                   </div>
 
-                  {/* Bottom row */}
-                  <div className="flex items-end justify-between relative z-[1]">
+                  {/* Card bottom */}
+                  <div className="flex items-end justify-between relative z-[2]">
                     <div>
-                      <p className="text-[8px] text-gray-600 uppercase tracking-widest">Wallet</p>
+                      <p className="text-[8px] text-blue-600 uppercase tracking-widest mb-0.5">Wallet</p>
                       <p className="text-xs text-gray-400 font-mono">{trAddr}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[8px] text-gray-600 uppercase tracking-widest">Rank</p>
-                      <p className={`text-sm font-bold uppercase tracking-widest ${isResult ? rank.color : 'text-gray-700'}`}>
-                        {isResult ? rank.label : '—'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ═══ RIGHT: Data & Actions ═══ */}
-              <div className="w-full md:w-1/2 h-[55%] md:h-full p-6 md:p-10 flex flex-col justify-between bg-black overflow-y-auto">
-                {/* Header */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-white font-bold text-lg tracking-tight">
-                      {isResult ? 'Identity Verified' : isScanning ? 'Scanning...' : 'Carbon Identity'}
-                    </h2>
-                    {!cd.expired && (
-                      <p className="text-[10px] text-green-400 font-mono tabular-nums">
-                        {cd.h}:{cd.m}:{cd.s}
-                      </p>
+                    {isResult && (
+                      <span className="px-3 py-1 bg-blue-900/40 text-blue-300 border border-blue-500/50 rounded uppercase tracking-wider text-[11px] font-bold shadow-[0_0_15px_rgba(0,82,255,0.4)]">
+                        {rank}
+                      </span>
+                    )}
+                    {!isResult && (
+                      <div className="text-right">
+                        <p className="text-[8px] text-blue-600 uppercase tracking-widest">Rank</p>
+                        <p className="text-xs text-gray-600">—</p>
+                      </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mb-6">Anti-Sybil airdrop · PoHG verification on Base L2</p>
+                </div>
 
-                  {/* IDLE: scan prompt */}
-                  {phase === PHASES.IDLE && (
-                    <div className="space-y-4">
-                      <p className="text-sm text-gray-400 leading-relaxed">
-                        Connect your wallet to scan gas history across Ethereum, Base, Arbitrum, Optimism and Polygon. Your $MERIT allocation is calculated from verified on-chain activity.
-                      </p>
-                      <button
-                        onClick={runScanner}
-                        disabled={cd.expired}
-                        className="w-full py-4 rounded-xl bg-white text-black font-bold text-sm uppercase tracking-widest hover:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        {cd.expired ? 'Event Closed' : 'Verify Identity'}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* SCANNING: minimal loader */}
-                  {isScanning && (
-                    <div className="flex items-center gap-3 py-8">
-                      <div className="w-5 h-5 rounded-full border-2 border-gray-700 border-t-white animate-spin" />
-                      <p className="text-sm text-gray-400">Querying 5 EVM networks...</p>
-                    </div>
-                  )}
-
-                  {/* RESULT: data */}
-                  {isResult && (
-                    <div className="space-y-5">
-                      {/* EVM Footprint */}
+                {/* Action Section */}
+                <div className="mt-6 flex-shrink-0">
+                  {isResult ? (
+                    <div className="space-y-3">
+                      {/* Invite Link */}
                       <div>
-                        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">EVM Footprint</p>
-                        <div className="space-y-2">
-                          {chainData.map(c => (
-                            <div key={c.id} className="flex items-center justify-between">
-                              <span className="text-sm text-gray-400">{c.label}</span>
-                              <span className="text-sm text-gray-300 font-mono tabular-nums">{c.gas.toFixed(4)} ETH</span>
-                            </div>
-                          ))}
-                          <div className="h-px bg-white/5 my-1" />
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-white font-semibold">Total</span>
-                            <span className="text-sm text-white font-bold font-mono tabular-nums">{gasSpent.toFixed(4)} ETH</span>
-                          </div>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Invite Link · +8% Bonus</p>
+                        <div className="flex items-stretch rounded-xl overflow-hidden border border-white/10">
+                          <input
+                            readOnly
+                            value={refLink}
+                            className="flex-1 bg-black/50 text-gray-300 text-xs font-mono px-4 py-3 outline-none min-w-0"
+                            onClick={copyLink}
+                          />
+                          <button
+                            onClick={copyLink}
+                            className="bg-blue-600 text-white font-bold text-xs uppercase tracking-widest px-5 hover:bg-blue-500 transition-colors shrink-0"
+                          >
+                            {copied ? 'COPIED' : 'COPY'}
+                          </button>
                         </div>
+                        <p className="text-[10px] text-gray-600 mt-1">Invite friends for an 8% bonus. They keep 100% of their allocation.</p>
                       </div>
 
-                      {/* Allocation summary */}
-                      <div className="rounded-xl bg-zinc-900 border border-white/5 p-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500 uppercase tracking-widest">Allocation</span>
-                          <span className="text-lg text-white font-bold">{fmt(meritReward)} $MERIT</span>
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-gray-500 uppercase tracking-widest">Rank</span>
-                          <span className={`text-sm font-bold uppercase tracking-widest ${rank.color}`}>{rank.label}</span>
-                        </div>
+                      {/* Social Buttons */}
+                      <div className="flex gap-4 mt-4">
+                        <a
+                          href={wcUrl} target="_blank" rel="noopener noreferrer"
+                          className="flex-1 text-center text-white font-bold text-sm py-4 rounded-xl hover:brightness-110 transition-all shadow-lg"
+                          style={{ background: WC }}
+                        >
+                          SHARE ON WARPCAST
+                        </a>
+                        <a
+                          href={twUrl} target="_blank" rel="noopener noreferrer"
+                          className="flex-1 bg-white text-black text-center font-bold text-sm py-4 rounded-xl hover:bg-gray-200 transition-all shadow-lg"
+                        >
+                          SHARE ON X
+                        </a>
                       </div>
+
+                      <p className="text-[9px] text-green-500/60 text-center mt-2 leading-relaxed">
+                        {'STATUS: [APPROVED] — $MERIT TOKENS WILL BE AUTOMATICALLY RELEASED AFTER 72H. NO ACTION REQUIRED.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-gray-600">
+                        {isScanning ? 'Verification in progress...' : 'Begin scan to unlock your $MERIT allocation and sharing tools.'}
+                      </p>
                     </div>
                   )}
                 </div>
-
-                {/* Actions — pinned to bottom */}
-                {isResult && (
-                  <div className="mt-6 space-y-3">
-                    {/* Referral */}
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Invite Link · +8% Bonus</p>
-                      <div className="flex items-stretch gap-0 rounded-xl overflow-hidden border border-white/10">
-                        <input
-                          readOnly
-                          value={refLink}
-                          className="flex-1 bg-zinc-900 text-gray-300 text-xs font-mono px-4 py-3 outline-none min-w-0"
-                          onClick={copyLink}
-                        />
-                        <button
-                          onClick={copyLink}
-                          className="bg-white text-black font-bold text-xs uppercase tracking-widest px-5 hover:bg-gray-200 transition-colors shrink-0"
-                        >
-                          {copied ? 'Copied' : 'Copy'}
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-gray-600 mt-1.5">Invite friends for an 8% bonus. They keep 100% of their allocation.</p>
-                    </div>
-
-                    {/* Warpcast */}
-                    <a
-                      href={wcUrl} target="_blank" rel="noopener noreferrer"
-                      className="block w-full text-center text-white font-bold text-sm uppercase tracking-widest py-4 rounded-xl shadow-lg hover:brightness-110 transition-all"
-                      style={{ background: WC }}
-                    >
-                      Share on Warpcast
-                    </a>
-
-                    {/* X */}
-                    <a
-                      href={twUrl} target="_blank" rel="noopener noreferrer"
-                      className="block w-full bg-white text-black text-center font-bold text-sm uppercase tracking-widest py-4 rounded-xl shadow-lg hover:bg-gray-200 transition-colors"
-                    >
-                      Share on X
-                    </a>
-
-                    <p className="text-[9px] text-gray-600 leading-relaxed text-center pt-1">
-                      $MERIT tokens will be released at 0x...dead after the 72-hour event. No action required.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
