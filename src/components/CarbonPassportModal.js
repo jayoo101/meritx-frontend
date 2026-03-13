@@ -5,9 +5,7 @@ import toast from 'react-hot-toast';
 
 const MERIT_PER_ETH = 12_345;
 const TERMINAL_FONT = "'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace";
-
-const EVENT_DURATION_MS = 72 * 60 * 60 * 1000;
-const EVENT_START = new Date('2025-03-13T00:00:00Z').getTime();
+const EVENT_END_MS = new Date('2026-03-16T21:00:00Z').getTime();
 
 const PHASES = { IDLE: 'idle', SCANNING: 'scanning', RESULT: 'result' };
 
@@ -68,7 +66,7 @@ export default function CarbonPassportModal() {
   const [siteOrigin, setSiteOrigin] = useState('https://meritx.ai');
   const scanRef = useRef(0);
 
-  const countdown = useCountdown(EVENT_START + EVENT_DURATION_MS);
+  const countdown = useCountdown(EVENT_END_MS);
 
   useEffect(() => {
     setSiteOrigin(window.location.origin);
@@ -166,24 +164,67 @@ export default function CarbonPassportModal() {
 
   return (
     <>
-      {/* Floating re-open button */}
+      {/* ═══ Floating Carbon Identity Card — Bottom Left ═══ */}
       {!open && (
-        <motion.button
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.5, type: 'spring', stiffness: 260, damping: 20 }}
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.92 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 0.4, type: 'spring', stiffness: 220, damping: 22 }}
+          className="fixed bottom-5 left-5 z-[90] w-[280px] rounded-xl overflow-hidden cursor-pointer group"
           onClick={reopen}
-          className="fixed bottom-6 right-6 z-[90] w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-400/30 shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all hover:scale-110"
-          title="Open Carbon Passport"
+          style={{ fontFamily: TERMINAL_FONT }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-          <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
-        </motion.button>
+          {/* Neon-green outer glow */}
+          <div className="absolute -inset-px rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-400/10 to-emerald-500/30 opacity-80 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute -inset-[2px] rounded-xl shadow-[0_0_20px_rgba(52,211,153,0.15),0_0_60px_rgba(52,211,153,0.06)] group-hover:shadow-[0_0_25px_rgba(52,211,153,0.25),0_0_80px_rgba(52,211,153,0.1)] transition-shadow" />
+
+          {/* Card body */}
+          <div className="relative bg-zinc-950/95 backdrop-blur-xl border border-emerald-500/20 rounded-xl p-4">
+            {/* Scanline effect */}
+            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+              <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(52,211,153,0.015)_2px,rgba(52,211,153,0.015)_4px)]" />
+            </div>
+
+            {/* Top row: icon + title */}
+            <div className="relative flex items-center gap-2.5 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] text-emerald-400/90 font-bold uppercase tracking-[0.15em] leading-none">Carbon Identity</p>
+                <p className="text-[8px] text-zinc-600 uppercase tracking-widest mt-0.5">Verification Event</p>
+              </div>
+              {/* Live indicator */}
+              <div className="ml-auto flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+                <span className="text-[8px] text-emerald-500/70 font-bold uppercase">Live</span>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="relative h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent mb-3" />
+
+            {/* Countdown */}
+            <div className="relative mb-3">
+              <p className="text-[8px] text-zinc-600 uppercase tracking-widest mb-1">Ends In</p>
+              <p className={`text-lg font-black tabular-nums tracking-wide leading-none ${countdown.expired ? 'text-red-400' : 'text-white'}`}>
+                {countdown.expired ? 'EVENT ENDED' : countdown.label}
+              </p>
+            </div>
+
+            {/* Scan Now button */}
+            <button
+              className="relative w-full py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest text-emerald-300 bg-emerald-500/8 border border-emerald-500/20 hover:bg-emerald-500/15 hover:border-emerald-500/30 hover:text-emerald-200 transition-all group-hover:shadow-[0_0_12px_rgba(52,211,153,0.1)]"
+            >
+              Scan Now
+            </button>
+          </div>
+        </motion.div>
       )}
 
-      {/* Modal */}
+      {/* ═══ Full-Screen Modal ═══ */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -201,11 +242,13 @@ export default function CarbonPassportModal() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.93, y: 24 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="relative w-[90vw] max-w-[1200px] max-h-[80vh] glass-modal rounded-2xl overflow-hidden flex flex-col"
+              className="relative w-[90vw] max-w-[1200px] max-h-[80vh] rounded-2xl overflow-hidden flex flex-col bg-zinc-950/95 backdrop-blur-xl border border-zinc-800/60"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Scanline overlay */}
               <div className="absolute inset-0 pointer-events-none z-[1] carbon-scanline" />
 
+              {/* Close */}
               <button
                 onClick={dismiss}
                 className="absolute top-4 right-4 z-10 w-8 h-8 rounded-lg bg-zinc-900/80 border border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-white hover:border-zinc-500 transition-all"
@@ -213,6 +256,7 @@ export default function CarbonPassportModal() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
 
+              {/* Scrollable content */}
               <div className="overflow-y-auto flex-1 p-6 sm:p-8">
                 {/* Header + countdown */}
                 <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
@@ -227,7 +271,6 @@ export default function CarbonPassportModal() {
                       <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Anti-Sybil Airdrop · 72-Hour Event</p>
                     </div>
                   </div>
-                  {/* Countdown */}
                   <div className="rounded-lg bg-black/50 border border-zinc-800/60 px-4 py-2 flex items-center gap-2" style={{ fontFamily: TERMINAL_FONT }}>
                     <span className={`w-2 h-2 rounded-full ${countdown.expired ? 'bg-red-500' : 'bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.6)]'}`} />
                     <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Time Remaining:</span>
@@ -356,14 +399,14 @@ export default function CarbonPassportModal() {
                 {phase === PHASES.RESULT && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div>
-                      {/* Single hero stat — $MERIT SECURED */}
+                      {/* $MERIT SECURED */}
                       <motion.div
                         initial={{ scale: 0.85, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ type: 'spring', stiffness: 280, damping: 18 }}
                         className="rounded-xl bg-blue-600/5 border border-blue-500/15 p-6 text-center mb-5"
                       >
-                        <p className="text-[10px] font-mono text-blue-400/60 uppercase tracking-widest mb-2">Allocation Confirmed</p>
+                        <p className="text-[10px] font-mono text-blue-400/60 uppercase tracking-widest mb-2">Total $MERIT Secured</p>
                         <p className="text-4xl sm:text-5xl font-black text-blue-400 tracking-tighter" style={{ fontFamily: TERMINAL_FONT }}>
                           {formatMerit(meritReward)}
                         </p>
