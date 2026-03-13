@@ -2,30 +2,28 @@ import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
-function getRank(gasSpent) {
-  const gas = parseFloat(gasSpent) || 0;
-  if (gas >= 5) return { title: 'Carbon Legend', color: '#4ade80', glow: 'rgba(74,222,128,0.4)' };
-  if (gas >= 1) return { title: 'EVM Veteran', color: '#60a5fa', glow: 'rgba(96,165,250,0.4)' };
-  if (gas >= 0.1) return { title: 'Builder', color: '#a78bfa', glow: 'rgba(167,139,250,0.4)' };
-  return { title: 'Explorer', color: '#94a3b8', glow: 'rgba(148,163,184,0.3)' };
+const BASE_BLUE = '#0052FF';
+const NEON_GREEN = '#00FF41';
+
+function rankMeta(title) {
+  const t = (title || '').toUpperCase();
+  if (t.includes('LEGEND')) return { color: NEON_GREEN, glow: 'rgba(0,255,65,0.35)' };
+  if (t.includes('VETERAN')) return { color: BASE_BLUE, glow: 'rgba(0,82,255,0.35)' };
+  if (t.includes('BUILDER')) return { color: '#a78bfa', glow: 'rgba(167,139,250,0.3)' };
+  return { color: '#94a3b8', glow: 'rgba(148,163,184,0.25)' };
 }
 
-function formatMerit(n) {
-  return Math.round(n).toLocaleString('en-US');
+function fmtMerit(n) {
+  return Math.round(Number(n) || 0).toLocaleString('en-US');
 }
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get('address') || '0x0000...0000';
-  const gasSpent = searchParams.get('gasSpent') || '0';
-  const rankOverride = searchParams.get('rank');
+  const meritAmount = searchParams.get('meritAmount') || '0';
+  const rankTitle = searchParams.get('rank') || 'EXPLORER';
 
-  const gas = parseFloat(gasSpent) || 0;
-  const merit = gas * 12345;
-  const rank = rankOverride
-    ? { title: rankOverride, color: '#60a5fa', glow: 'rgba(96,165,250,0.4)' }
-    : getRank(gas);
-
+  const rm = rankMeta(rankTitle);
   const truncAddr = address.length >= 10
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : address;
@@ -40,98 +38,145 @@ export async function GET(request) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(145deg, #050505 0%, #0a0f1a 40%, #050505 100%)',
+          background: 'linear-gradient(150deg, #020204 0%, #060a18 35%, #080612 65%, #020204 100%)',
           fontFamily: 'monospace',
           position: 'relative',
           overflow: 'hidden',
         }}
       >
-        {/* Neon border */}
+        {/* Outer glow border */}
         <div
           style={{
             position: 'absolute',
-            inset: '12px',
-            border: `1.5px solid ${rank.color}33`,
-            borderRadius: '24px',
+            inset: '10px',
+            borderRadius: '28px',
+            border: `1.5px solid ${BASE_BLUE}40`,
             display: 'flex',
-            boxShadow: `inset 0 0 60px ${rank.glow}, 0 0 40px ${rank.glow}`,
+            boxShadow: `inset 0 0 80px ${BASE_BLUE}15, 0 0 60px ${BASE_BLUE}20, 0 0 120px ${BASE_BLUE}08`,
           }}
         />
 
-        {/* Corner accents */}
-        <div style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: rank.color, boxShadow: `0 0 10px ${rank.color}` }} />
-          <span style={{ color: '#52525b', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>MeritX Protocol · Base L2</span>
-        </div>
-        <div style={{ position: 'absolute', top: '24px', right: '36px', display: 'flex' }}>
-          <span style={{ color: rank.color, fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 700 }}>{rank.title}</span>
-        </div>
+        {/* Grid pattern overlay */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: '0',
+            display: 'flex',
+            backgroundImage: `linear-gradient(${BASE_BLUE}08 1px, transparent 1px), linear-gradient(90deg, ${BASE_BLUE}08 1px, transparent 1px)`,
+            backgroundSize: '60px 60px',
+            opacity: 0.4,
+          }}
+        />
 
-        {/* Main content */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '-20px' }}>
-          {/* Shield icon via text */}
+        {/* Top-left: Protocol label + chip */}
+        <div style={{ position: 'absolute', top: '32px', left: '36px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '16px',
-              background: `${rank.color}15`,
-              border: `1px solid ${rank.color}30`,
+              width: '36px',
+              height: '26px',
+              borderRadius: '6px',
+              background: `${BASE_BLUE}18`,
+              border: `1px solid ${BASE_BLUE}35`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '28px',
-              marginBottom: '8px',
             }}
           >
-            🛡️
+            <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: `${BASE_BLUE}25`, display: 'flex' }} />
           </div>
+          <span style={{ color: '#52525b', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600 }}>
+            MeritX Protocol · Base L2
+          </span>
+        </div>
 
-          <span style={{ color: '#71717a', fontSize: '13px', letterSpacing: '0.25em', textTransform: 'uppercase' }}>Carbon Passport · Verified</span>
+        {/* Top-right: Rank badge */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '28px',
+            right: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 14px',
+            borderRadius: '8px',
+            background: `${rm.color}12`,
+            border: `1px solid ${rm.color}30`,
+          }}
+        >
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: rm.color, boxShadow: `0 0 8px ${rm.color}` }} />
+          <span style={{ color: rm.color, fontSize: '12px', letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 800 }}>
+            {rankTitle.toUpperCase()}
+          </span>
+        </div>
 
+        {/* Center content */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginTop: '-10px' }}>
+          <span style={{ color: '#3f3f46', fontSize: '12px', letterSpacing: '0.3em', textTransform: 'uppercase', fontWeight: 600 }}>
+            Carbon Identity Passport · Verified
+          </span>
+
+          {/* Address line */}
+          <span style={{ color: '#71717a', fontSize: '14px', letterSpacing: '0.08em', marginTop: '8px' }}>
+            {truncAddr}&apos;s Carbon Passport
+          </span>
+
+          {/* Massive MERIT number */}
           <span
             style={{
-              fontSize: '72px',
+              fontSize: '86px',
               fontWeight: 900,
-              color: rank.color,
+              color: NEON_GREEN,
               letterSpacing: '-0.03em',
               lineHeight: 1,
-              textShadow: `0 0 30px ${rank.glow}`,
-              marginTop: '12px',
+              textShadow: `0 0 40px rgba(0,255,65,0.35), 0 0 80px rgba(0,255,65,0.12)`,
+              marginTop: '16px',
             }}
           >
-            {formatMerit(merit)}
+            {fmtMerit(meritAmount)}
           </span>
-          <span style={{ color: '#a1a1aa', fontSize: '22px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '4px' }}>$MERIT Unlocked</span>
+          <span style={{ color: `${NEON_GREEN}90`, fontSize: '24px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '4px' }}>
+            $MERIT UNLOCKED
+          </span>
         </div>
 
-        {/* Stats row */}
-        <div style={{ display: 'flex', gap: '48px', marginTop: '40px' }}>
+        {/* Bottom stats row */}
+        <div style={{ display: 'flex', gap: '60px', marginTop: '44px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#52525b', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Gas Spent</span>
-            <span style={{ color: '#e4e4e7', fontSize: '20px', fontWeight: 800 }}>{gas.toFixed(4)} ETH</span>
+            <span style={{ color: '#3f3f46', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Wallet</span>
+            <span style={{ color: '#a1a1aa', fontSize: '18px', fontWeight: 700 }}>{truncAddr}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#52525b', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Rank</span>
-            <span style={{ color: rank.color, fontSize: '20px', fontWeight: 800 }}>{rank.title}</span>
+            <span style={{ color: '#3f3f46', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Rank</span>
+            <span style={{ color: rm.color, fontSize: '18px', fontWeight: 700 }}>{rankTitle.toUpperCase()}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#52525b', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Wallet</span>
-            <span style={{ color: '#a1a1aa', fontSize: '20px', fontWeight: 800 }}>{truncAddr}</span>
+            <span style={{ color: '#3f3f46', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Network</span>
+            <span style={{ color: BASE_BLUE, fontSize: '18px', fontWeight: 700 }}>Multi-Chain EVM</span>
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ position: 'absolute', bottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ color: '#3f3f46', fontSize: '11px', letterSpacing: '0.1em' }}>meritx.ai</span>
-          <span style={{ color: '#27272a', fontSize: '11px' }}>·</span>
-          <span style={{ color: '#3f3f46', fontSize: '11px', letterSpacing: '0.1em' }}>Anti-Sybil Airdrop · Gas History Verification</span>
+        {/* Footer bar */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '36px',
+            right: '36px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span style={{ color: '#27272a', fontSize: '11px', letterSpacing: '0.08em' }}>
+            meritx.ai · Anti-Sybil Gas History Verification
+          </span>
+          <span style={{ color: '#27272a', fontSize: '11px', letterSpacing: '0.08em' }}>
+            Powered by PoHG on Base L2
+          </span>
         </div>
       </div>
     ),
-    {
-      width: 1200,
-      height: 630,
-    }
+    { width: 1200, height: 630 }
   );
 }

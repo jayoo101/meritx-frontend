@@ -157,10 +157,10 @@ export default function CarbonPassportModal() {
   const rank = getRank(gasSpent);
   const trAddr = account ? `${account.slice(0, 6)}...${account.slice(-4)}` : '0x0000...0000';
   const refLink = account ? `${siteOrigin}/?ref=${account}` : siteOrigin;
-  const ogUrl = `${siteOrigin}/api/og?address=${encodeURIComponent(account)}&gasSpent=${gasSpent}`;
-  const wcText = `I just verified my Carbon Identity on @MeritX on Base. I unlocked ${fmt(meritReward)} $MERIT based on my gas history. Invite friends for 8% bonus. They keep 100%. \u{1F535}`;
+  const ogUrl = `${siteOrigin}/api/og?address=${encodeURIComponent(account)}&meritAmount=${meritReward}&rank=${encodeURIComponent(rank.title)}`;
+  const wcText = `I just verified my Carbon Identity on @MeritX on Base. I unlocked ${fmt(meritReward)} $MERIT based on my gas history. Invite friends for 8% bonus. They keep 100%.\n\n${refLink}`;
   const wcUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(wcText)}&embeds[]=${encodeURIComponent(ogUrl)}`;
-  const twText = `I just verified my Carbon Identity on @MeritX_ai. My gas history earned me ${fmt(meritReward)} $MERIT on Base. \u{1F535} #MeritX #Base\n\n${refLink}`;
+  const twText = `I just verified my Carbon Identity on @MeritX_ai. My gas history earned me ${fmt(meritReward)} $MERIT on Base. #MeritX #Base\n\n${refLink}`;
   const twUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twText)}`;
 
   const copyLink = useCallback(() => {
@@ -176,7 +176,7 @@ export default function CarbonPassportModal() {
           <ShieldIcon size={22} />
         </div>
         <div>
-          <h2 className="text-lg font-black text-white tracking-tight uppercase leading-tight">Carbon Passport</h2>
+          <h2 className="text-lg font-black text-white tracking-tight uppercase leading-tight">Carbon Identity Passport</h2>
           <p className="text-[9px] font-mono uppercase tracking-[0.2em]" style={{ color: '#52525b' }}>Anti-Sybil Airdrop Verification</p>
         </div>
       </div>
@@ -244,16 +244,16 @@ export default function CarbonPassportModal() {
       )}
       {account && phase !== PHASES.IDLE && (
         <div className="rounded-lg px-3 py-2 mb-5 flex items-center gap-2" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: phase === PHASES.RESULT ? NEON_GREEN : BASE_BLUE }} />
+          <span className="w-2 h-2 rounded-full" style={{ background: phase === PHASES.RESULT ? NEON_GREEN : BASE_BLUE, boxShadow: `0 0 8px ${phase === PHASES.RESULT ? NEON_GREEN : BASE_BLUE}60` }} />
           <span className="text-[10px] font-mono" style={{ color: '#52525b' }}>Wallet: {account.slice(0, 8)}...{account.slice(-6)}</span>
         </div>
       )}
 
       {/* Spacer + status line at bottom */}
       <div className="mt-auto pt-4">
-        <div className="rounded-lg px-3 py-2.5" style={{ background: `${NEON_GREEN}06`, border: `1px solid ${NEON_GREEN}10` }}>
-          <p className="text-[9px] font-mono uppercase tracking-wider leading-relaxed" style={{ color: phase === PHASES.RESULT ? NEON_GREEN : '#3f3f46' }}>
-            Status: <span className="font-bold">[{phase === PHASES.RESULT ? 'Approved' : 'Pending'}]</span> — $MERIT tokens will be automatically released at 0x...dead after 72H. No action required.
+        <div className="rounded-lg px-3 py-2.5" style={{ background: phase === PHASES.RESULT ? `${NEON_GREEN}08` : 'rgba(255,255,255,0.02)', border: `1px solid ${phase === PHASES.RESULT ? `${NEON_GREEN}15` : 'rgba(255,255,255,0.04)'}` }}>
+          <p className="text-[9px] font-mono uppercase tracking-wider leading-relaxed font-bold" style={{ color: phase === PHASES.RESULT ? NEON_GREEN : '#3f3f46' }}>
+            STATUS: [{phase === PHASES.RESULT ? 'APPROVED' : 'PENDING'}] — $MERIT TOKENS WILL BE AUTOMATICALLY RELEASED AT 0x...dead AFTER 72H. NO ACTION REQUIRED.
           </p>
         </div>
       </div>
@@ -268,10 +268,10 @@ export default function CarbonPassportModal() {
         initial={{ opacity: 0, y: 16, rotateY: -3 }}
         animate={{ opacity: 1, y: 0, rotateY: 0 }}
         transition={{ delay: 0.15, type: 'spring', damping: 25 }}
-        className="relative w-full aspect-[1.6/1] rounded-2xl overflow-hidden transition-transform duration-300 hover:scale-[1.02] mb-5"
+        className="relative w-full rounded-2xl overflow-hidden transition-transform duration-500 hover:scale-[1.01] mb-5"
         style={{
           background: 'linear-gradient(135deg, #0c0e14 0%, #080a10 40%, #0d1018 100%)',
-          boxShadow: `0 0 40px ${BASE_BLUE}25, 0 8px 50px rgba(0,0,0,0.7)`,
+          boxShadow: `0 0 50px ${BASE_BLUE}35, 0 0 100px ${BASE_BLUE}12, 0 8px 50px rgba(0,0,0,0.7)`,
           border: `1px solid ${BASE_BLUE}20`,
           perspective: '1000px',
         }}
@@ -287,17 +287,18 @@ export default function CarbonPassportModal() {
           }}
         />
 
-        {/* Data flow nodes */}
-        <div className="absolute inset-0 pointer-events-none" style={{ animation: 'data-pulse 4s ease-in-out infinite' }}>
+        {/* Static data flow nodes */}
+        <div className="absolute inset-0 pointer-events-none">
           {[
             { x: '15%', y: '20%' }, { x: '75%', y: '15%' }, { x: '85%', y: '70%' },
             { x: '25%', y: '75%' }, { x: '50%', y: '40%' }, { x: '60%', y: '80%' },
-            { x: '10%', y: '50%' }, { x: '90%', y: '40%' },
+            { x: '10%', y: '50%' }, { x: '90%', y: '40%' }, { x: '40%', y: '12%' },
+            { x: '70%', y: '55%' }, { x: '30%', y: '60%' }, { x: '55%', y: '88%' },
           ].map((p, i) => (
             <div
               key={i}
               className="absolute w-1 h-1 rounded-full"
-              style={{ left: p.x, top: p.y, background: BASE_BLUE, boxShadow: `0 0 6px ${BASE_BLUE}60`, opacity: 0.3 + (i % 3) * 0.2 }}
+              style={{ left: p.x, top: p.y, background: BASE_BLUE, boxShadow: `0 0 8px ${BASE_BLUE}50`, opacity: 0.15 + (i % 4) * 0.08 }}
             />
           ))}
         </div>
@@ -328,47 +329,70 @@ export default function CarbonPassportModal() {
           <p className="text-[7px] font-mono uppercase tracking-[0.2em]" style={{ color: `${BASE_BLUE}80` }}>MeritX Protocol · Base L2</p>
         </div>
 
-        {/* Center: MERIT amount */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        {/* Card body — uses relative flow instead of absolute centering */}
+        <div className="relative z-[2] px-5 pt-14 pb-4 flex flex-col min-h-[280px]">
           {phase === PHASES.RESULT ? (
             <>
-              <p className="text-[8px] font-mono uppercase tracking-[0.25em] mb-2" style={{ color: '#52525b' }}>Carbon Passport · Verified</p>
-              <motion.p
-                initial={{ scale: 0.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
-                className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter leading-none"
-                style={{ fontFamily: TF, color: NEON_GREEN, textShadow: `0 0 25px ${NEON_GREEN}30, 0 0 50px ${NEON_GREEN}10` }}
-              >
-                {fmt(meritReward)}
-              </motion.p>
-              <p className="text-xs font-bold uppercase tracking-[0.15em] mt-1.5" style={{ color: `${NEON_GREEN}70` }}>$MERIT Secured</p>
+              {/* MERIT + Rank badge */}
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <p className="text-[8px] font-mono uppercase tracking-[0.25em] mb-2" style={{ color: '#52525b' }}>Carbon Identity Passport · Verified</p>
+                <div className="flex items-center gap-3">
+                  <motion.p
+                    initial={{ scale: 0.7, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
+                    className="text-4xl sm:text-5xl font-black tracking-tighter leading-none"
+                    style={{ fontFamily: TF, color: NEON_GREEN, textShadow: `0 0 25px ${NEON_GREEN}30, 0 0 50px ${NEON_GREEN}10` }}
+                  >
+                    {fmt(meritReward)}
+                  </motion.p>
+                  <div className="rounded-lg px-2.5 py-1" style={{ background: `${rank.color}12`, border: `1px solid ${rank.color}30`, boxShadow: `0 0 12px ${rank.color}15` }}>
+                    <p className="text-[9px] font-mono font-black uppercase tracking-wider" style={{ color: rank.color }}>{rank.title}</p>
+                  </div>
+                </div>
+                <p className="text-xs font-bold uppercase tracking-[0.15em] mt-1.5" style={{ color: `${NEON_GREEN}70` }}>$MERIT Secured</p>
+              </div>
+
+              {/* Multi-chain breakdown */}
+              <div className="mt-4 rounded-lg px-3 py-2.5" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.04)', fontFamily: TF }}>
+                {chainData.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between py-[2px]">
+                    <span className="text-[9px]" style={{ color: '#52525b' }}>{c.name}</span>
+                    <span className="text-[9px] tabular-nums" style={{ color: c.gas > 0 ? '#71717a' : '#27272a' }}>{c.gas.toFixed(4)} ETH</span>
+                  </div>
+                ))}
+                <div className="h-px my-1.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-bold" style={{ color: '#a1a1aa' }}>TOTAL</span>
+                  <span className="text-[9px] font-bold tabular-nums" style={{ color: NEON_GREEN }}>{gasSpent.toFixed(4)} ETH</span>
+                </div>
+              </div>
+
+              {/* Wallet + Rank row */}
+              <div className="flex items-end justify-between mt-3">
+                <div>
+                  <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#3f3f46' }}>Wallet</p>
+                  <p className="text-[10px] font-bold font-mono" style={{ color: '#a1a1aa' }}>{trAddr}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#3f3f46' }}>Verification Hash</p>
+                  <p className="text-[9px] font-mono" style={{ color: '#3f3f46' }}>0x...dead_PoHG_BUS</p>
+                </div>
+              </div>
             </>
           ) : phase === PHASES.SCANNING ? (
-            <>
+            <div className="flex-1 flex flex-col items-center justify-center">
               <div className="w-14 h-14 rounded-full border-2 radar-spinner mb-3" style={{ borderColor: `${BASE_BLUE}30` }} />
               <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#52525b' }}>Scanning...</p>
-            </>
+            </div>
           ) : (
-            <>
+            <div className="flex-1 flex flex-col items-center justify-center">
               <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-2" style={{ background: `${BASE_BLUE}06`, border: `1px solid ${BASE_BLUE}10` }}>
                 <ShieldIcon size={28} color="#27272a" />
               </div>
               <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#27272a' }}>Connect Wallet</p>
-            </>
+            </div>
           )}
-        </div>
-
-        {/* Bottom row */}
-        <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
-          <div>
-            <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#27272a' }}>Wallet</p>
-            <p className="text-[10px] font-bold font-mono" style={{ color: phase === PHASES.RESULT ? '#a1a1aa' : '#27272a' }}>{trAddr}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#27272a' }}>Rank</p>
-            <p className="text-[10px] font-bold font-mono" style={{ color: phase === PHASES.RESULT ? rank.color : '#27272a' }}>{phase === PHASES.RESULT ? rank.title : '---'}</p>
-          </div>
         </div>
       </motion.div>
 
@@ -452,11 +476,11 @@ export default function CarbonPassportModal() {
                 <ShieldIcon size={15} />
               </div>
               <div className="min-w-0">
-                <p className="text-[9px] font-bold uppercase tracking-[0.15em] leading-none" style={{ color: BASE_BLUE }}>Carbon Passport</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.15em] leading-none" style={{ color: BASE_BLUE }}>Carbon Identity Passport</p>
                 <p className="text-[8px] uppercase tracking-widest mt-0.5" style={{ color: '#52525b' }}>Anti-Sybil Verification</p>
               </div>
               <div className="ml-auto flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: NEON_GREEN, boxShadow: `0 0 6px ${NEON_GREEN}70` }} />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: NEON_GREEN, boxShadow: `0 0 8px ${NEON_GREEN}60` }} />
                 <span className="text-[8px] font-bold uppercase" style={{ color: `${NEON_GREEN}90` }}>Live</span>
               </div>
             </div>
