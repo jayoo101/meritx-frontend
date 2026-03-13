@@ -119,24 +119,27 @@ export default function CarbonPassportModal() {
       {/* ── Modal ── */}
       <AnimatePresence>
         {open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
 
             {/* Backdrop click */}
             <div className="absolute inset-0" onClick={dismiss} />
 
             {/* Main Modal Container */}
             <div
-              className="relative w-full max-w-6xl h-auto md:h-[80vh] flex flex-col md:flex-row rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 to-black border border-blue-500/30 shadow-[0_0_80px_rgba(0,82,255,0.15)]"
+              className="relative w-full max-w-5xl h-auto flex flex-col rounded-3xl overflow-hidden bg-gradient-to-br from-[#0F172A] to-[#020617] border border-blue-500/30 shadow-[0_0_50px_rgba(0,82,255,0.15)]"
               onClick={e => e.stopPropagation()}
             >
               {/* Close */}
               <button onClick={dismiss} className="absolute top-4 right-5 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors text-lg">✕</button>
 
+              {/* ═══ Columns Row ═══ */}
+              <div className="flex flex-col md:flex-row flex-1">
+
               {/* ═══ LEFT COLUMN: Dashboard (2/5) ═══ */}
-              <div className="w-full md:w-2/5 h-auto md:h-full p-8 md:p-10 flex flex-col border-b md:border-b-0 md:border-r border-white/5 bg-black/20">
+              <div className="w-full md:w-2/5 p-6 md:p-8 flex flex-col border-b md:border-b-0 md:border-r border-white/5 bg-black/20">
 
                 {/* Header */}
-                <div className="flex items-start gap-3 mb-8">
+                <div className="flex items-start gap-3 mb-5">
                   <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(0,82,255,0.2)]">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -149,9 +152,9 @@ export default function CarbonPassportModal() {
                 </div>
 
                 {/* FOMO Countdown */}
-                <div className="mb-8">
-                  <p className="text-[10px] text-green-500/80 font-mono uppercase tracking-widest mb-2">{'/// UPLINK CLOSES IN ///'}</p>
-                  <p className="text-4xl md:text-5xl text-green-400 font-bold font-mono tabular-nums tracking-wider" style={{ textShadow: '0 0 25px rgba(74,222,128,0.3)' }}>
+                <div className="mb-5">
+                  <p className="text-[10px] text-green-500/80 font-mono uppercase tracking-widest mb-1.5">{'/// UPLINK CLOSES IN ///'}</p>
+                  <p className="text-3xl md:text-4xl text-green-400 font-bold font-mono tabular-nums tracking-wider whitespace-nowrap" style={{ textShadow: '0 0 25px rgba(74,222,128,0.3)' }}>
                     {cd.expired ? '00H : 00M : 00S' : `${cd.h}H : ${cd.m}M : ${cd.s}S`}
                   </p>
                 </div>
@@ -161,14 +164,14 @@ export default function CarbonPassportModal() {
                   <button
                     onClick={runScanner}
                     disabled={cd.expired}
-                    className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-blue-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,82,255,0.3)] mb-8"
+                    className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-blue-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,82,255,0.3)] mb-5"
                   >
                     {cd.expired ? 'Event Closed' : 'Verify Identity'}
                   </button>
                 )}
 
                 {isScanning && (
-                  <div className="flex items-center gap-3 mb-8 py-2">
+                  <div className="flex items-center gap-3 mb-5 py-2">
                     <div className="w-5 h-5 rounded-full border-2 border-blue-800 border-t-blue-400 animate-spin" />
                     <p className="text-sm text-gray-400">Querying 5 EVM networks...</p>
                   </div>
@@ -210,19 +213,13 @@ export default function CarbonPassportModal() {
                   </div>
                 </div>
 
-                {/* Status line */}
-                {isResult && (
-                  <p className="text-[9px] text-green-500/70 font-mono uppercase tracking-wider mt-4 leading-relaxed">
-                    {'STATUS: [APPROVED] — NO SYBIL DETECTED'}
-                  </p>
-                )}
               </div>
 
               {/* ═══ RIGHT COLUMN: Sapphire Card & Actions (3/5) ═══ */}
-              <div className="w-full md:w-3/5 h-auto md:h-full p-8 md:p-10 flex flex-col justify-between relative">
+              <div className="w-full md:w-3/5 p-6 md:p-8 flex flex-col gap-6 relative">
 
                 {/* The 3D Sapphire Glass Card */}
-                <div className="w-full aspect-[2/1] rounded-2xl bg-blue-950/20 backdrop-blur-xl border border-blue-400/20 shadow-[inset_0_0_30px_rgba(0,82,255,0.1),0_0_40px_rgba(0,82,255,0.08)] p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group">
+                <div className="w-full aspect-[2/1] rounded-2xl bg-blue-950/40 backdrop-blur-xl border border-blue-500/40 shadow-[inset_0_0_30px_rgba(0,82,255,0.1),0_0_40px_rgba(0,82,255,0.08)] p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group">
 
                   {/* Scan line effect */}
                   <div
@@ -299,7 +296,7 @@ export default function CarbonPassportModal() {
                 </div>
 
                 {/* Action Section */}
-                <div className="mt-6 flex-shrink-0">
+                <div className="flex-shrink-0">
                   {isResult ? (
                     <div className="space-y-3">
                       {/* Invite Link */}
@@ -339,9 +336,6 @@ export default function CarbonPassportModal() {
                         </a>
                       </div>
 
-                      <p className="text-[9px] text-green-500/60 text-center mt-2 leading-relaxed">
-                        {'STATUS: [APPROVED] — $MERIT TOKENS WILL BE AUTOMATICALLY RELEASED AFTER 72H. NO ACTION REQUIRED.'}
-                      </p>
                     </div>
                   ) : (
                     <div className="text-center py-6">
@@ -352,6 +346,16 @@ export default function CarbonPassportModal() {
                   )}
                 </div>
               </div>
+              </div>{/* end columns row */}
+
+              {/* ═══ Unified Status Bar ═══ */}
+              {isResult && (
+                <div className="w-full bg-green-950/30 border-t border-green-500/20 px-6 py-3 text-center">
+                  <span className="text-green-400 font-mono text-xs sm:text-sm">
+                    {'STATUS: [APPROVED] — $MERIT TOKENS WILL BE AUTOMATICALLY RELEASED AFTER 72H. NO ACTION REQUIRED.'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
