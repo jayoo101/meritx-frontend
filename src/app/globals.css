@@ -512,3 +512,18 @@ h1, h2, h3 {
   pointer-events: none;
   z-index: 2;
 }
+
+/* Animated circuit pattern for reputation card */
+@keyframes circuit-drift {
+  0%   { background-position: 0 0, 0 0; }
+  100% { background-position: 48px 48px, -48px -48px; }
+}
+@keyframes data-pulse {
+  0%, 100% { opacity: 0.015; }
+  50%      { opacity: 0.05; }
+}
+@keyframes holo-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
