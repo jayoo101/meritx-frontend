@@ -171,303 +171,8 @@ export default function CarbonPassportModal() {
     navigator.clipboard.writeText(refLink).then(() => { setCopied(true); toast.success('Referral link copied'); setTimeout(() => setCopied(false), 2000); });
   }, [refLink]);
 
-  // ─── Left column content (header, countdown, gas, status) ───
-  const LeftColumn = () => (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${BASE_BLUE}12`, border: `1px solid ${BASE_BLUE}25`, boxShadow: `0 0 24px ${BASE_BLUE}20` }}>
-          <ShieldIcon size={22} />
-        </div>
-        <div>
-          <h2 className="text-lg font-black text-white tracking-tight uppercase leading-tight">Carbon Identity Passport</h2>
-          <p className="text-[9px] font-mono lowercase tracking-[0.3em]" style={{ color: '#52525b' }}>anti-sybil airdrop verification</p>
-        </div>
-      </div>
-
-      {/* Countdown */}
-      <div className="rounded-xl py-5 px-4 mb-5 text-center" style={{ background: `linear-gradient(180deg, ${BASE_BLUE}08, transparent)`, border: `1px solid ${BASE_BLUE}10` }}>
-        <p className="text-[8px] font-mono uppercase tracking-[0.3em] mb-2" style={{ color: cd.expired ? '#f87171' : NEON_GREEN }}>
-          /// Uplink Closes In ///
-        </p>
-        <p
-          className="text-3xl sm:text-4xl font-black tabular-nums tracking-wider"
-          style={{ fontFamily: TF, color: cd.expired ? '#f87171' : NEON_GREEN, textShadow: cd.expired ? 'none' : `0 0 30px ${NEON_GREEN}40, 0 0 60px ${NEON_GREEN}12` }}
-        >
-          {cd.expired ? '/// CLOSED ///' : `${cd.hrs}H : ${cd.min}M : ${cd.sec}S`}
-        </p>
-      </div>
-
-      {/* Gas report (compact) */}
-      <div className="rounded-xl px-4 py-3 mb-5" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.05)', fontFamily: TF }}>
-        {phase === PHASES.RESULT ? (
-          <>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px]" style={{ color: '#52525b' }}>EVM FOOTPRINT</span>
-              <span className="text-[10px] font-bold" style={{ color: NEON_GREEN }}>[VERIFIED]</span>
-            </div>
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[10px]" style={{ color: '#71717a' }}>TOTAL COMBINED GAS</span>
-              <span className="text-[10px] font-bold text-white">{gasSpent.toFixed(4)} ETH</span>
-            </div>
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[10px]" style={{ color: '#71717a' }}>$MERIT ALLOCATION</span>
-              <span className="text-[10px] font-bold" style={{ color: NEON_GREEN }}>{fmt(meritReward)} $MERIT</span>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px]" style={{ color: '#52525b' }}>EVM FOOTPRINT</span>
-              <span className="text-[10px]" style={{ color: '#3f3f46' }}>[PENDING]</span>
-            </div>
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[10px]" style={{ color: '#3f3f46' }}>TOTAL COMBINED GAS</span>
-              <span className="text-[10px]" style={{ color: '#3f3f46' }}>?.???? ETH</span>
-            </div>
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[10px]" style={{ color: '#3f3f46' }}>$MERIT ALLOCATION</span>
-              <span className="text-[10px]" style={{ color: '#3f3f46' }}>?,??? $MERIT</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Action button (IDLE) or Wallet info (SCANNING/RESULT) */}
-      {phase === PHASES.IDLE && (
-        <div className="mb-5">
-          <button
-            onClick={runScanner}
-            disabled={cd.expired}
-            className="w-full py-3 rounded-xl font-black text-sm uppercase tracking-wider text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ background: BASE_BLUE, boxShadow: cd.expired ? 'none' : `0 0 20px ${BASE_BLUE}40`, border: `1px solid ${BASE_BLUE}70` }}
-          >
-            {cd.expired ? 'Uplink Closed' : 'Initialize Scan'}
-          </button>
-        </div>
-      )}
-      {account && phase !== PHASES.IDLE && (
-        <div className="rounded-lg px-3 py-2 mb-5 flex items-center gap-2" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <span className="w-2 h-2 rounded-full" style={{ background: phase === PHASES.RESULT ? NEON_GREEN : BASE_BLUE, boxShadow: `0 0 8px ${phase === PHASES.RESULT ? NEON_GREEN : BASE_BLUE}60` }} />
-          <span className="text-[10px] font-mono" style={{ color: '#52525b' }}>Wallet: {account.slice(0, 8)}...{account.slice(-6)}</span>
-        </div>
-      )}
-
-      {/* Spacer + status line at bottom */}
-      <div className="mt-auto pt-4">
-        <div className="rounded-lg px-3 py-2.5" style={{ background: phase === PHASES.RESULT ? `${NEON_GREEN}08` : 'rgba(255,255,255,0.02)', border: `1px solid ${phase === PHASES.RESULT ? `${NEON_GREEN}15` : 'rgba(255,255,255,0.04)'}` }}>
-          <p className="text-[9px] font-mono uppercase tracking-wider leading-relaxed font-bold" style={{ color: phase === PHASES.RESULT ? NEON_GREEN : '#3f3f46' }}>
-            STATUS: [{phase === PHASES.RESULT ? 'APPROVED' : 'PENDING'}] — $MERIT TOKENS WILL BE AUTOMATICALLY RELEASED AT 0x...dead AFTER 72H. NO ACTION REQUIRED.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ─── Right column: Reputation Card + Actions ───
-  const RightColumn = () => (
-    <div className="flex flex-col h-full">
-      {/* 3D Reputation Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 16, rotateY: -3 }}
-        animate={{ opacity: 1, y: 0, rotateY: 0 }}
-        transition={{ delay: 0.15, type: 'spring', damping: 25 }}
-        className="relative w-full rounded-2xl overflow-hidden transition-transform duration-500 hover:scale-[1.01] mb-5"
-        style={{
-          background: 'linear-gradient(135deg, #060a18 0%, #040812 40%, #080e1e 100%)',
-          boxShadow: `0 0 50px ${BASE_BLUE}40, 0 0 100px ${BASE_BLUE}15, 0 8px 50px rgba(0,0,0,0.7)`,
-          border: `1px solid ${BASE_BLUE}25`,
-          perspective: '1000px',
-        }}
-      >
-        {/* Sapphire scanning line */}
-        <div
-          className="absolute left-0 right-0 h-[2px] pointer-events-none z-[5]"
-          style={{
-            background: `linear-gradient(90deg, transparent, ${BASE_BLUE}90, ${BASE_BLUE}, ${BASE_BLUE}90, transparent)`,
-            boxShadow: `0 0 12px ${BASE_BLUE}60, 0 0 30px ${BASE_BLUE}25`,
-            animation: 'sapphire-scan 4s ease-in-out infinite',
-          }}
-        />
-
-        {/* Animated circuit grid */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `linear-gradient(${BASE_BLUE}18 1px, transparent 1px), linear-gradient(90deg, ${BASE_BLUE}18 1px, transparent 1px)`,
-            backgroundSize: '48px 48px',
-            animation: 'circuit-drift 20s linear infinite',
-            opacity: 0.05,
-          }}
-        />
-
-        {/* Static data flow nodes */}
-        <div className="absolute inset-0 pointer-events-none">
-          {[
-            { x: '15%', y: '20%' }, { x: '75%', y: '15%' }, { x: '85%', y: '70%' },
-            { x: '25%', y: '75%' }, { x: '50%', y: '40%' }, { x: '60%', y: '80%' },
-            { x: '10%', y: '50%' }, { x: '90%', y: '40%' }, { x: '40%', y: '12%' },
-            { x: '70%', y: '55%' }, { x: '30%', y: '60%' }, { x: '55%', y: '88%' },
-          ].map((p, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 rounded-full"
-              style={{ left: p.x, top: p.y, background: BASE_BLUE, boxShadow: `0 0 8px ${BASE_BLUE}50`, opacity: 0.15 + (i % 4) * 0.08 }}
-            />
-          ))}
-        </div>
-
-        {/* Holographic sweep */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.04]"
-          style={{
-            background: `linear-gradient(120deg, transparent 20%, ${BASE_BLUE}50 40%, ${NEON_GREEN}20 50%, ${BASE_BLUE}50 60%, transparent 80%)`,
-            backgroundSize: '200% 100%',
-            animation: 'holo-shift 6s ease-in-out infinite',
-          }}
-        />
-
-        {/* Inner glow border (sapphire glass) */}
-        <div className="absolute inset-[4px] rounded-xl pointer-events-none" style={{ border: `1px solid ${BASE_BLUE}12`, boxShadow: `inset 0 0 40px ${BASE_BLUE}06` }} />
-
-        {/* Smart chip */}
-        <div className="absolute top-4 left-5 w-10 h-7 rounded-md overflow-hidden" style={{ background: `linear-gradient(135deg, ${BASE_BLUE}25, ${BASE_BLUE}08)`, border: `1px solid ${BASE_BLUE}30` }}>
-          <div className="absolute inset-[2px] rounded-sm" style={{ background: `linear-gradient(135deg, ${BASE_BLUE}12, transparent)` }}>
-            <div className="absolute top-1/2 left-0 right-0 h-px" style={{ background: `${BASE_BLUE}20` }} />
-            <div className="absolute top-0 bottom-0 left-1/2 w-px" style={{ background: `${BASE_BLUE}20` }} />
-          </div>
-        </div>
-
-        {/* Protocol label */}
-        <div className="absolute top-4 right-5">
-          <p className="text-[7px] font-mono uppercase tracking-[0.2em]" style={{ color: `${BASE_BLUE}80` }}>MeritX Protocol · Base L2</p>
-        </div>
-
-        {/* Card body — uses relative flow instead of absolute centering */}
-        <div className="relative z-[2] px-5 pt-14 pb-4 flex flex-col min-h-[280px]">
-          {phase === PHASES.RESULT ? (
-            <>
-              {/* MERIT + Rank badge */}
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <p className="text-[8px] font-mono uppercase tracking-[0.25em] mb-2" style={{ color: '#52525b' }}>Carbon Identity Passport · Verified</p>
-                <div className="flex items-center gap-3">
-                  <motion.p
-                    initial={{ scale: 0.7, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
-                    className="text-4xl sm:text-5xl font-black tracking-tighter leading-none"
-                    style={{ fontFamily: TF, color: NEON_GREEN, textShadow: `0 0 25px ${NEON_GREEN}30, 0 0 50px ${NEON_GREEN}10` }}
-                  >
-                    {fmt(meritReward)}
-                  </motion.p>
-                  <div className="rounded-lg px-2.5 py-1" style={{ background: `${rank.color}12`, border: `1px solid ${rank.color}30`, boxShadow: `0 0 12px ${rank.color}15` }}>
-                    <p className="text-[9px] font-mono font-black uppercase tracking-wider" style={{ color: rank.color }}>{rank.title}</p>
-                  </div>
-                </div>
-                <p className="text-xs font-bold uppercase tracking-[0.15em] mt-1.5" style={{ color: `${NEON_GREEN}70` }}>$MERIT Secured</p>
-              </div>
-
-              {/* Multi-chain breakdown */}
-              <div className="mt-4 rounded-lg px-3 py-2.5" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.04)', fontFamily: TF }}>
-                {chainData.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between py-[2px]">
-                    <span className="text-[9px]" style={{ color: '#52525b' }}>{c.name}</span>
-                    <span className="text-[9px] tabular-nums" style={{ color: c.gas > 0 ? '#71717a' : '#27272a' }}>{c.gas.toFixed(4)} ETH</span>
-                  </div>
-                ))}
-                <div className="h-px my-1.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-bold" style={{ color: '#a1a1aa' }}>TOTAL</span>
-                  <span className="text-[9px] font-bold tabular-nums" style={{ color: NEON_GREEN }}>{gasSpent.toFixed(4)} ETH</span>
-                </div>
-              </div>
-
-              {/* Wallet + Rank row */}
-              <div className="flex items-end justify-between mt-3">
-                <div>
-                  <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#3f3f46' }}>Wallet</p>
-                  <p className="text-[10px] font-bold font-mono" style={{ color: '#a1a1aa' }}>{trAddr}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#3f3f46' }}>Verification Hash</p>
-                  <p className="text-[9px] font-mono" style={{ color: '#3f3f46' }}>0x...dead_A2A_BUS</p>
-                </div>
-              </div>
-            </>
-          ) : phase === PHASES.SCANNING ? (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="w-14 h-14 rounded-full border-2 radar-spinner mb-3" style={{ borderColor: `${BASE_BLUE}30` }} />
-              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#52525b' }}>Scanning...</p>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-2" style={{ background: `${BASE_BLUE}06`, border: `1px solid ${BASE_BLUE}10` }}>
-                <ShieldIcon size={28} color="#27272a" />
-              </div>
-              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#27272a' }}>Connect Wallet</p>
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Actions (only in RESULT) */}
-      {phase === PHASES.RESULT && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="flex flex-col gap-3">
-          {/* Invite link */}
-          <div className="rounded-xl px-4 py-3" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[8px] font-mono uppercase tracking-widest" style={{ color: '#52525b' }}>Your Invite Link</span>
-              <span className="text-[8px] font-mono" style={{ color: `${BASE_BLUE}80` }}>+8% Referral Bonus</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div
-                className="flex-1 rounded-lg px-3 py-2 text-[10px] font-mono truncate cursor-pointer transition-all hover:text-white"
-                style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.06)', color: '#52525b' }}
-                onClick={copyLink}
-              >
-                {refLink}
-              </div>
-              <button
-                onClick={copyLink}
-                className="shrink-0 px-3.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
-                style={{ background: BASE_BLUE, color: '#fff', border: `1px solid ${BASE_BLUE}70` }}
-              >
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-            <p className="text-[9px] mt-1.5" style={{ color: '#3f3f46' }}>Invite friends for an 8% bonus. They keep 100% of their allocation.</p>
-          </div>
-
-          {/* Share buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <a
-              href={wcUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 py-3 rounded-xl text-white text-[11px] font-bold uppercase tracking-wider transition-all hover:opacity-90"
-              style={{ background: WARPCAST_PURPLE, border: `1px solid ${WARPCAST_PURPLE}70`, boxShadow: `0 0 20px ${WARPCAST_PURPLE}20` }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M2.2 4.1h4.3l2.3 8.3h.1l2.3-8.3h4.3L21.8 4.1V6.6L19.7 7.5V16.5L21.8 17.4V19.9H15.9V17.4L18 16.5V8.3H17.9L14.6 19.9H11.7L8.4 8.3H8.3V16.5L10.4 17.4V19.9H4.5V17.4L6.6 16.5V7.5L4.5 6.6V4.1H2.2Z" /></svg>
-              Share on Warpcast
-            </a>
-            <a
-              href={twUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 py-3 rounded-xl text-white text-[11px] font-bold uppercase tracking-wider transition-all hover:opacity-90"
-              style={{ background: '#000', border: '1px solid #333' }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-              Share on X
-            </a>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Idle description */}
-      {phase === PHASES.IDLE && (
-        <p className="text-[11px] text-center leading-relaxed mt-auto" style={{ color: '#52525b' }}>
-          Connect your wallet to scan <span style={{ color: BASE_BLUE }}>Ethereum, Base, Arbitrum, Optimism</span> and <span style={{ color: BASE_BLUE }}>Polygon</span> for your <span className="text-white font-semibold">$MERIT</span> allocation.
-        </p>
-      )}
-    </div>
-  );
+  /* columns are inlined below as JSX — NOT as arrow-function components,
+     to prevent React from unmounting/remounting them every countdown tick */
 
   return (
     <>
@@ -543,11 +248,296 @@ export default function CarbonPassportModal() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
 
-              {/* Horizontal 2-column content */}
+              {/* Horizontal 2-column content — inlined to avoid remount on every tick */}
               <div className="overflow-y-auto flex-1 p-5 sm:p-7 relative z-[2]">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 min-h-[450px]">
-                  <LeftColumn />
-                  <RightColumn />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full min-h-[450px]">
+
+                  {/* ═══ LEFT COLUMN ═══ */}
+                  <div className="flex flex-col h-full">
+                    {/* Header */}
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${BASE_BLUE}12`, border: `1px solid ${BASE_BLUE}25`, boxShadow: `0 0 24px ${BASE_BLUE}20` }}>
+                        <ShieldIcon size={22} />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-black text-white tracking-tight uppercase leading-tight">Carbon Identity Passport</h2>
+                        <p className="text-[9px] font-mono lowercase tracking-[0.3em]" style={{ color: '#52525b' }}>anti-sybil airdrop verification</p>
+                      </div>
+                    </div>
+
+                    {/* Countdown */}
+                    <div className="rounded-xl py-5 px-4 mb-5 text-center" style={{ background: `linear-gradient(180deg, ${BASE_BLUE}08, transparent)`, border: `1px solid ${BASE_BLUE}10` }}>
+                      <p className="text-[8px] font-mono uppercase tracking-[0.3em] mb-2" style={{ color: cd.expired ? '#f87171' : NEON_GREEN }}>
+                        /// Uplink Closes In ///
+                      </p>
+                      <p
+                        className="text-3xl sm:text-4xl font-black tabular-nums tracking-wider"
+                        style={{ fontFamily: TF, color: cd.expired ? '#f87171' : NEON_GREEN, textShadow: cd.expired ? 'none' : `0 0 30px ${NEON_GREEN}40, 0 0 60px ${NEON_GREEN}12` }}
+                      >
+                        {cd.expired ? '/// CLOSED ///' : `${cd.hrs}H : ${cd.min}M : ${cd.sec}S`}
+                      </p>
+                    </div>
+
+                    {/* Gas report (compact) */}
+                    <div className="rounded-xl px-4 py-3 mb-5" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.05)', fontFamily: TF }}>
+                      {phase === PHASES.RESULT ? (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px]" style={{ color: '#52525b' }}>EVM FOOTPRINT</span>
+                            <span className="text-[10px] font-bold" style={{ color: NEON_GREEN }}>[VERIFIED]</span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-[10px]" style={{ color: '#71717a' }}>TOTAL COMBINED GAS</span>
+                            <span className="text-[10px] font-bold text-white">{gasSpent.toFixed(4)} ETH</span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-[10px]" style={{ color: '#71717a' }}>$MERIT ALLOCATION</span>
+                            <span className="text-[10px] font-bold" style={{ color: NEON_GREEN }}>{fmt(meritReward)} $MERIT</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px]" style={{ color: '#52525b' }}>EVM FOOTPRINT</span>
+                            <span className="text-[10px]" style={{ color: '#3f3f46' }}>[PENDING]</span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-[10px]" style={{ color: '#3f3f46' }}>TOTAL COMBINED GAS</span>
+                            <span className="text-[10px]" style={{ color: '#3f3f46' }}>?.???? ETH</span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-[10px]" style={{ color: '#3f3f46' }}>$MERIT ALLOCATION</span>
+                            <span className="text-[10px]" style={{ color: '#3f3f46' }}>?,??? $MERIT</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Action button (IDLE) or Wallet info */}
+                    {phase === PHASES.IDLE && (
+                      <div className="mb-5">
+                        <button
+                          onClick={runScanner}
+                          disabled={cd.expired}
+                          className="w-full py-3 rounded-xl font-black text-sm uppercase tracking-wider text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          style={{ background: BASE_BLUE, boxShadow: cd.expired ? 'none' : `0 0 20px ${BASE_BLUE}40`, border: `1px solid ${BASE_BLUE}70` }}
+                        >
+                          {cd.expired ? 'Uplink Closed' : 'Initialize Scan'}
+                        </button>
+                      </div>
+                    )}
+                    {account && phase !== PHASES.IDLE && (
+                      <div className="rounded-lg px-3 py-2 mb-5 flex items-center gap-2" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span className="w-2 h-2 rounded-full" style={{ background: phase === PHASES.RESULT ? NEON_GREEN : BASE_BLUE, boxShadow: `0 0 8px ${phase === PHASES.RESULT ? NEON_GREEN : BASE_BLUE}60` }} />
+                        <span className="text-[10px] font-mono" style={{ color: '#52525b' }}>Wallet: {account.slice(0, 8)}...{account.slice(-6)}</span>
+                      </div>
+                    )}
+
+                    {/* Status line pinned to bottom */}
+                    <div className="mt-auto pt-4">
+                      <div className="rounded-lg px-3 py-2.5" style={{ background: phase === PHASES.RESULT ? `${NEON_GREEN}08` : 'rgba(255,255,255,0.02)', border: `1px solid ${phase === PHASES.RESULT ? `${NEON_GREEN}15` : 'rgba(255,255,255,0.04)'}` }}>
+                        <p className="text-[9px] font-mono uppercase tracking-wider leading-relaxed font-bold" style={{ color: phase === PHASES.RESULT ? NEON_GREEN : '#3f3f46' }}>
+                          STATUS: [{phase === PHASES.RESULT ? 'APPROVED' : 'PENDING'}] — $MERIT TOKENS WILL BE AUTOMATICALLY RELEASED AT 0x...dead AFTER 72H. NO ACTION REQUIRED.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ═══ RIGHT COLUMN ═══ */}
+                  <div className="flex flex-col h-full">
+                    {/* 3D Sapphire Reputation Card */}
+                    <div
+                      className="relative w-full rounded-2xl overflow-hidden transition-transform duration-500 hover:scale-[1.01] mb-5"
+                      style={{
+                        background: 'linear-gradient(135deg, #060a18 0%, #040812 40%, #080e1e 100%)',
+                        boxShadow: `0 0 50px ${BASE_BLUE}40, 0 0 100px ${BASE_BLUE}15, 0 8px 50px rgba(0,0,0,0.7)`,
+                        border: `1px solid ${BASE_BLUE}25`,
+                      }}
+                    >
+                      {/* Sapphire scanning line */}
+                      <div
+                        className="absolute left-0 right-0 h-[2px] pointer-events-none z-[5]"
+                        style={{
+                          background: `linear-gradient(90deg, transparent, ${BASE_BLUE}90, ${BASE_BLUE}, ${BASE_BLUE}90, transparent)`,
+                          boxShadow: `0 0 12px ${BASE_BLUE}60, 0 0 30px ${BASE_BLUE}25`,
+                          animation: 'sapphire-scan 4s ease-in-out infinite',
+                        }}
+                      />
+
+                      {/* Circuit grid */}
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          backgroundImage: `linear-gradient(${BASE_BLUE}18 1px, transparent 1px), linear-gradient(90deg, ${BASE_BLUE}18 1px, transparent 1px)`,
+                          backgroundSize: '48px 48px',
+                          animation: 'circuit-drift 20s linear infinite',
+                          opacity: 0.05,
+                        }}
+                      />
+
+                      {/* Data flow nodes */}
+                      <div className="absolute inset-0 pointer-events-none">
+                        {[
+                          { x: '15%', y: '20%' }, { x: '75%', y: '15%' }, { x: '85%', y: '70%' },
+                          { x: '25%', y: '75%' }, { x: '50%', y: '40%' }, { x: '60%', y: '80%' },
+                          { x: '10%', y: '50%' }, { x: '90%', y: '40%' }, { x: '40%', y: '12%' },
+                          { x: '70%', y: '55%' }, { x: '30%', y: '60%' }, { x: '55%', y: '88%' },
+                        ].map((p, i) => (
+                          <div
+                            key={i}
+                            className="absolute w-1 h-1 rounded-full"
+                            style={{ left: p.x, top: p.y, background: BASE_BLUE, boxShadow: `0 0 8px ${BASE_BLUE}50`, opacity: 0.15 + (i % 4) * 0.08 }}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Holographic sweep */}
+                      <div
+                        className="absolute inset-0 pointer-events-none opacity-[0.04]"
+                        style={{
+                          background: `linear-gradient(120deg, transparent 20%, ${BASE_BLUE}50 40%, ${NEON_GREEN}20 50%, ${BASE_BLUE}50 60%, transparent 80%)`,
+                          backgroundSize: '200% 100%',
+                          animation: 'holo-shift 6s ease-in-out infinite',
+                        }}
+                      />
+
+                      {/* Inner glow border (sapphire glass) */}
+                      <div className="absolute inset-[4px] rounded-xl pointer-events-none" style={{ border: `1px solid ${BASE_BLUE}12`, boxShadow: `inset 0 0 40px ${BASE_BLUE}06` }} />
+
+                      {/* Smart chip */}
+                      <div className="absolute top-4 left-5 w-10 h-7 rounded-md overflow-hidden" style={{ background: `linear-gradient(135deg, ${BASE_BLUE}25, ${BASE_BLUE}08)`, border: `1px solid ${BASE_BLUE}30` }}>
+                        <div className="absolute inset-[2px] rounded-sm" style={{ background: `linear-gradient(135deg, ${BASE_BLUE}12, transparent)` }}>
+                          <div className="absolute top-1/2 left-0 right-0 h-px" style={{ background: `${BASE_BLUE}20` }} />
+                          <div className="absolute top-0 bottom-0 left-1/2 w-px" style={{ background: `${BASE_BLUE}20` }} />
+                        </div>
+                      </div>
+
+                      {/* Protocol label */}
+                      <div className="absolute top-4 right-5">
+                        <p className="text-[7px] font-mono uppercase tracking-[0.2em]" style={{ color: `${BASE_BLUE}80` }}>MeritX Protocol · Base L2</p>
+                      </div>
+
+                      {/* Card body */}
+                      <div className="relative z-[2] px-5 pt-14 pb-4 flex flex-col min-h-[280px]">
+                        {phase === PHASES.RESULT ? (
+                          <>
+                            <div className="flex-1 flex flex-col items-center justify-center">
+                              <p className="text-[8px] font-mono uppercase tracking-[0.25em] mb-2" style={{ color: '#52525b' }}>Carbon Identity Passport · Verified</p>
+                              <div className="flex items-center gap-3 flex-wrap justify-center">
+                                <p
+                                  className="text-4xl sm:text-5xl font-black tracking-tighter leading-none"
+                                  style={{ fontFamily: TF, color: NEON_GREEN, textShadow: `0 0 25px ${NEON_GREEN}30, 0 0 50px ${NEON_GREEN}10` }}
+                                >
+                                  {fmt(meritReward)}
+                                </p>
+                                <div className="rounded-lg px-2.5 py-1" style={{ background: `${rank.color}12`, border: `1px solid ${rank.color}30`, boxShadow: `0 0 12px ${rank.color}15` }}>
+                                  <p className="text-[9px] font-mono font-black uppercase tracking-wider" style={{ color: rank.color }}>{rank.title}</p>
+                                </div>
+                              </div>
+                              <p className="text-xs font-bold uppercase tracking-[0.15em] mt-1.5" style={{ color: `${NEON_GREEN}70` }}>$MERIT Secured</p>
+                            </div>
+
+                            {/* Multi-chain breakdown */}
+                            <div className="mt-4 rounded-lg px-3 py-2.5" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.04)', fontFamily: TF }}>
+                              {chainData.map((c) => (
+                                <div key={c.id} className="flex items-center justify-between py-[2px]">
+                                  <span className="text-[9px]" style={{ color: '#52525b' }}>{c.name}</span>
+                                  <span className="text-[9px] tabular-nums" style={{ color: c.gas > 0 ? '#71717a' : '#27272a' }}>{c.gas.toFixed(4)} ETH</span>
+                                </div>
+                              ))}
+                              <div className="h-px my-1.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] font-bold" style={{ color: '#a1a1aa' }}>TOTAL</span>
+                                <span className="text-[9px] font-bold tabular-nums" style={{ color: NEON_GREEN }}>{gasSpent.toFixed(4)} ETH</span>
+                              </div>
+                            </div>
+
+                            {/* Wallet + Hash row */}
+                            <div className="flex items-end justify-between mt-3">
+                              <div>
+                                <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#3f3f46' }}>Wallet</p>
+                                <p className="text-[10px] font-bold font-mono" style={{ color: '#a1a1aa' }}>{trAddr}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#3f3f46' }}>Verification Hash</p>
+                                <p className="text-[9px] font-mono" style={{ color: '#3f3f46' }}>0x...dead_A2A_BUS</p>
+                              </div>
+                            </div>
+                          </>
+                        ) : phase === PHASES.SCANNING ? (
+                          <div className="flex-1 flex flex-col items-center justify-center">
+                            <div className="w-14 h-14 rounded-full border-2 radar-spinner mb-3" style={{ borderColor: `${BASE_BLUE}30` }} />
+                            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#52525b' }}>Scanning...</p>
+                          </div>
+                        ) : (
+                          <div className="flex-1 flex flex-col items-center justify-center">
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-2" style={{ background: `${BASE_BLUE}06`, border: `1px solid ${BASE_BLUE}10` }}>
+                              <ShieldIcon size={28} color="#27272a" />
+                            </div>
+                            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#27272a' }}>Connect Wallet</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions (RESULT phase) */}
+                    {phase === PHASES.RESULT && (
+                      <div className="flex flex-col gap-3">
+                        {/* Invite link */}
+                        <div className="rounded-xl px-4 py-3" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[8px] font-mono uppercase tracking-widest" style={{ color: '#52525b' }}>Your Invite Link</span>
+                            <span className="text-[8px] font-mono" style={{ color: `${BASE_BLUE}80` }}>+8% Referral Bonus</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="flex-1 rounded-lg px-3 py-2 text-[10px] font-mono truncate cursor-pointer transition-all hover:text-white"
+                              style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.06)', color: '#52525b' }}
+                              onClick={copyLink}
+                            >
+                              {refLink}
+                            </div>
+                            <button
+                              onClick={copyLink}
+                              className="shrink-0 px-3.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                              style={{ background: BASE_BLUE, color: '#fff', border: `1px solid ${BASE_BLUE}70` }}
+                            >
+                              {copied ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
+                          <p className="text-[9px] mt-1.5" style={{ color: '#3f3f46' }}>Invite friends for an 8% bonus. They keep 100% of their allocation.</p>
+                        </div>
+
+                        {/* Share buttons */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <a
+                            href={wcUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 py-3 rounded-xl text-white text-[11px] font-bold uppercase tracking-wider transition-all hover:brightness-110"
+                            style={{ background: WARPCAST_PURPLE, border: `1px solid ${WARPCAST_PURPLE}70`, boxShadow: `0 0 20px ${WARPCAST_PURPLE}20` }}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M2.2 4.1h4.3l2.3 8.3h.1l2.3-8.3h4.3L21.8 4.1V6.6L19.7 7.5V16.5L21.8 17.4V19.9H15.9V17.4L18 16.5V8.3H17.9L14.6 19.9H11.7L8.4 8.3H8.3V16.5L10.4 17.4V19.9H4.5V17.4L6.6 16.5V7.5L4.5 6.6V4.1H2.2Z" /></svg>
+                            Share on Warpcast
+                          </a>
+                          <a
+                            href={twUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 py-3 rounded-xl text-white text-[11px] font-bold uppercase tracking-wider transition-all hover:bg-gray-900"
+                            style={{ background: '#000', border: '1px solid #333' }}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                            Share on X
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Idle description */}
+                    {phase === PHASES.IDLE && (
+                      <p className="text-[11px] text-center leading-relaxed mt-auto" style={{ color: '#52525b' }}>
+                        Connect your wallet to scan <span style={{ color: BASE_BLUE }}>Ethereum, Base, Arbitrum, Optimism</span> and <span style={{ color: BASE_BLUE }}>Polygon</span> for your <span className="text-white font-semibold">$MERIT</span> allocation.
+                      </p>
+                    )}
+                  </div>
+
                 </div>
               </div>
             </motion.div>
