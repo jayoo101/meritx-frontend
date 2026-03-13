@@ -118,7 +118,7 @@ export async function GET(request) {
 
           {/* Address line */}
           <span style={{ color: '#71717a', fontSize: '14px', letterSpacing: '0.08em', marginTop: '8px' }}>
-            {truncAddr}&apos;s Carbon Passport
+            {truncAddr}{"'"}s Carbon Passport
           </span>
 
           {/* Massive MERIT number */}

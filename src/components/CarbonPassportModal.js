@@ -104,8 +104,12 @@ export default function CarbonPassportModal() {
 
   useEffect(() => {
     setSiteOrigin(window.location.origin);
-    const seen = localStorage.getItem(LS_KEY);
-    if (seen !== 'true') {
+    try {
+      const seen = localStorage.getItem(LS_KEY);
+      if (seen !== 'true') {
+        setOpen(true);
+      }
+    } catch {
       setOpen(true);
     }
   }, []);
@@ -177,7 +181,7 @@ export default function CarbonPassportModal() {
         </div>
         <div>
           <h2 className="text-lg font-black text-white tracking-tight uppercase leading-tight">Carbon Identity Passport</h2>
-          <p className="text-[9px] font-mono uppercase tracking-[0.2em]" style={{ color: '#52525b' }}>Anti-Sybil Airdrop Verification</p>
+          <p className="text-[9px] font-mono lowercase tracking-[0.3em]" style={{ color: '#52525b' }}>anti-sybil airdrop verification</p>
         </div>
       </div>
 
@@ -517,8 +521,8 @@ export default function CarbonPassportModal() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.93, y: 24 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="relative w-[90vw] max-w-[1100px] max-h-[85vh] rounded-2xl overflow-hidden flex flex-col"
-              style={{ background: 'rgba(5,5,8,0.97)', border: '1px solid rgba(255,255,255,0.07)' }}
+              className="relative w-[90vw] max-w-[1400px] max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
+              style={{ background: 'linear-gradient(160deg, #0a0a0c 0%, #060608 40%, #030305 100%)', border: '1px solid rgba(255,255,255,0.07)' }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Scanline overlay */}
@@ -531,7 +535,7 @@ export default function CarbonPassportModal() {
 
               {/* Horizontal 2-column content */}
               <div className="overflow-y-auto flex-1 p-5 sm:p-7 relative z-[2]">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 min-h-[400px]">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 min-h-[450px]">
                   <LeftColumn />
                   <RightColumn />
                 </div>
