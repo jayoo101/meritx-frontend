@@ -527,3 +527,11 @@ h1, h2, h3 {
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+
+/* Sapphire scan line — slow vertical sweep for reputation card */
+@keyframes sapphire-scan {
+  0%   { top: -4%; opacity: 0; }
+  5%   { opacity: 0.9; }
+  90%  { opacity: 0.9; }
+  100% { top: 100%; opacity: 0; }
+}

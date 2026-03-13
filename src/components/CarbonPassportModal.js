@@ -274,12 +274,22 @@ export default function CarbonPassportModal() {
         transition={{ delay: 0.15, type: 'spring', damping: 25 }}
         className="relative w-full rounded-2xl overflow-hidden transition-transform duration-500 hover:scale-[1.01] mb-5"
         style={{
-          background: 'linear-gradient(135deg, #0c0e14 0%, #080a10 40%, #0d1018 100%)',
-          boxShadow: `0 0 50px ${BASE_BLUE}35, 0 0 100px ${BASE_BLUE}12, 0 8px 50px rgba(0,0,0,0.7)`,
-          border: `1px solid ${BASE_BLUE}20`,
+          background: 'linear-gradient(135deg, #060a18 0%, #040812 40%, #080e1e 100%)',
+          boxShadow: `0 0 50px ${BASE_BLUE}40, 0 0 100px ${BASE_BLUE}15, 0 8px 50px rgba(0,0,0,0.7)`,
+          border: `1px solid ${BASE_BLUE}25`,
           perspective: '1000px',
         }}
       >
+        {/* Sapphire scanning line */}
+        <div
+          className="absolute left-0 right-0 h-[2px] pointer-events-none z-[5]"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${BASE_BLUE}90, ${BASE_BLUE}, ${BASE_BLUE}90, transparent)`,
+            boxShadow: `0 0 12px ${BASE_BLUE}60, 0 0 30px ${BASE_BLUE}25`,
+            animation: 'sapphire-scan 4s ease-in-out infinite',
+          }}
+        />
+
         {/* Animated circuit grid */}
         <div
           className="absolute inset-0 pointer-events-none"
@@ -287,7 +297,7 @@ export default function CarbonPassportModal() {
             backgroundImage: `linear-gradient(${BASE_BLUE}18 1px, transparent 1px), linear-gradient(90deg, ${BASE_BLUE}18 1px, transparent 1px)`,
             backgroundSize: '48px 48px',
             animation: 'circuit-drift 20s linear infinite',
-            opacity: 0.04,
+            opacity: 0.05,
           }}
         />
 
@@ -309,16 +319,16 @@ export default function CarbonPassportModal() {
 
         {/* Holographic sweep */}
         <div
-          className="absolute inset-0 pointer-events-none opacity-[0.03]"
+          className="absolute inset-0 pointer-events-none opacity-[0.04]"
           style={{
-            background: `linear-gradient(120deg, transparent 20%, ${BASE_BLUE}40 40%, ${NEON_GREEN}20 50%, ${BASE_BLUE}40 60%, transparent 80%)`,
+            background: `linear-gradient(120deg, transparent 20%, ${BASE_BLUE}50 40%, ${NEON_GREEN}20 50%, ${BASE_BLUE}50 60%, transparent 80%)`,
             backgroundSize: '200% 100%',
             animation: 'holo-shift 6s ease-in-out infinite',
           }}
         />
 
-        {/* Inner glow border */}
-        <div className="absolute inset-[5px] rounded-xl pointer-events-none" style={{ border: `1px solid ${BASE_BLUE}10` }} />
+        {/* Inner glow border (sapphire glass) */}
+        <div className="absolute inset-[4px] rounded-xl pointer-events-none" style={{ border: `1px solid ${BASE_BLUE}12`, boxShadow: `inset 0 0 40px ${BASE_BLUE}06` }} />
 
         {/* Smart chip */}
         <div className="absolute top-4 left-5 w-10 h-7 rounded-md overflow-hidden" style={{ background: `linear-gradient(135deg, ${BASE_BLUE}25, ${BASE_BLUE}08)`, border: `1px solid ${BASE_BLUE}30` }}>
@@ -380,7 +390,7 @@ export default function CarbonPassportModal() {
                 </div>
                 <div className="text-right">
                   <p className="text-[6px] font-mono uppercase tracking-widest" style={{ color: '#3f3f46' }}>Verification Hash</p>
-                  <p className="text-[9px] font-mono" style={{ color: '#3f3f46' }}>0x...dead_PoHG_BUS</p>
+                  <p className="text-[9px] font-mono" style={{ color: '#3f3f46' }}>0x...dead_A2A_BUS</p>
                 </div>
               </div>
             </>
