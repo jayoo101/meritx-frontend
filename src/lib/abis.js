@@ -42,18 +42,20 @@ export const FUND_ABI = [
   // Inflation engine
   'function initialTick() view returns (int24)',
   'function lastMintTime() view returns (uint256)',
+  'function poolCreationTime() view returns (uint256)',
   'function MINT_COOLDOWN() view returns (uint256)',
   'function INITIAL_SUPPLY() view returns (uint256)',
   'function calculateTargetSupply(int24 tick) view returns (uint256)',
   'function getTWAP() view returns (int24)',
   // Write operations
-  'function contribute(uint256 _maxAllocation, bytes _signature) external payable',
+  'function contribute(uint256 _maxAlloc, bytes _sig) external payable',
   'function claimTokens() external',
   'function claimRefund() external',
   'function announceLaunch() external',
   'function finalizeFunding() external',
   'function collectTradingFees() external',
   'function mintInflation() external',
+  'function expandPoolObservation(uint16 nextCardinality) external',
 ];
 
 // ERC-20 token reads

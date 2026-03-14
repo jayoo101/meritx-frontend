@@ -13,72 +13,139 @@ import { ipfsToHttp, fetchIPFSMetadata } from '@/lib/ipfs';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-async function safeCall(fn, fallback = '') {
-  try { return await fn(); } catch { return fallback; }
+// ── Multicall3 (canonical address, deployed on all EVM chains incl. Base) ──
+const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
+const MC_ABI = [
+  'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[])',
+];
+const fundIface = new ethers.utils.Interface(FUND_ABI);
+const tokenIface = new ethers.utils.Interface(TOKEN_ABI);
+const FUND_READS = ['projectToken', 'totalRaised', 'SOFT_CAP', 'currentState', 'raiseEndTime', 'ipfsURI'];
+
+// ── IPFS metadata cache (content-addressed data is immutable) ──
+const _ipfsCache = new Map();
+async function cachedIPFS(uri) {
+  if (!uri) return null;
+  if (_ipfsCache.has(uri)) return _ipfsCache.get(uri);
+  const meta = await fetchIPFSMetadata(uri);
+  if (meta) _ipfsCache.set(uri, meta);
+  return meta;
 }
 
-const BATCH_SIZE = 5;
+function decodeSafe(iface, fn, data) {
+  try { return iface.decodeFunctionResult(fn, data)[0]; } catch { return null; }
+}
+
+const bn = (v) => (v?.toNumber ? v.toNumber() : Number(v ?? 0));
+
+// SWR deep-compare: skip re-renders when on-chain data hasn't actually changed
+function projectsEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  return a.every((p, i) => {
+    const q = b[i];
+    return p.address === q.address && p.state === q.state
+      && p.raised === q.raised && p.progress === q.progress;
+  });
+}
 
 async function fetchAllProjects() {
   const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
   const addresses = await factory.getAllProjects();
+  if (addresses.length === 0) return [];
 
-  const results = [];
-  for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
-    const batch = addresses.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(batch.map(addr => readProject(addr, provider)));
-    results.push(...batchResults);
+  const mc = new ethers.Contract(MULTICALL3, MC_ABI, provider);
+
+  // Round 1 — batch ALL fund reads into a single RPC call
+  const fundCalls = addresses.flatMap(addr =>
+    FUND_READS.map(fn => ({
+      target: addr,
+      allowFailure: true,
+      callData: fundIface.encodeFunctionData(fn),
+    }))
+  );
+  const r1 = await mc.aggregate3(fundCalls);
+  const stride = FUND_READS.length;
+  const fundSlices = [];
+  const tokenAddrs = [];
+
+  for (let i = 0; i < addresses.length; i++) {
+    const base = i * stride;
+    const get = (off, fn) => {
+      const slot = r1[base + off];
+      return slot.success ? decodeSafe(fundIface, fn, slot.returnData) : null;
+    };
+    const tokenAddr = get(0, 'projectToken');
+    const raised    = get(1, 'totalRaised');
+    const softCap   = get(2, 'SOFT_CAP');
+    const state     = get(3, 'currentState');
+    const endTime   = get(4, 'raiseEndTime');
+    const ipfsURI   = get(5, 'ipfsURI');
+
+    if (!tokenAddr || raised == null || softCap == null || state == null) {
+      fundSlices.push(null);
+      tokenAddrs.push(null);
+      continue;
+    }
+
+    tokenAddrs.push(tokenAddr);
+    fundSlices.push({
+      address: addresses[i], raised, softCap,
+      state: bn(state),
+      endTime: bn(endTime) * 1000,
+      ipfsURI: ipfsURI || '',
+    });
   }
-  return results.filter(Boolean);
-}
 
-async function readProject(addr, provider) {
-  try {
-    const fund = new ethers.Contract(addr, FUND_ABI, provider);
-    const [tokenAddr, raised, softCap, state, endTime, ipfsURI] = await Promise.all([
-      fund.projectToken(),
-      fund.totalRaised(),
-      fund.SOFT_CAP(),
-      fund.currentState(),
-      fund.raiseEndTime(),
-      safeCall(() => fund.ipfsURI(), ''),
-    ]);
+  // Round 2 — batch ALL token name+symbol reads into a single RPC call
+  const validIdxs = [];
+  const tokenCalls = [];
+  tokenAddrs.forEach((addr, i) => {
+    if (!addr || !fundSlices[i]) return;
+    validIdxs.push(i);
+    tokenCalls.push(
+      { target: addr, allowFailure: true, callData: tokenIface.encodeFunctionData('name') },
+      { target: addr, allowFailure: true, callData: tokenIface.encodeFunctionData('symbol') },
+    );
+  });
+  const r2 = tokenCalls.length > 0 ? await mc.aggregate3(tokenCalls) : [];
+  const nameMap = new Map();
+  const symMap  = new Map();
+  validIdxs.forEach((oi, ci) => {
+    nameMap.set(oi, r2[ci * 2]?.success   ? decodeSafe(tokenIface, 'name',   r2[ci * 2].returnData)     : 'Unknown');
+    symMap.set(oi,  r2[ci * 2 + 1]?.success ? decodeSafe(tokenIface, 'symbol', r2[ci * 2 + 1].returnData) : '???');
+  });
 
-    const token = new ethers.Contract(tokenAddr, TOKEN_ABI, provider);
-    const [name, symbol] = await Promise.all([
-      safeCall(() => token.name(), 'Unknown'),
-      safeCall(() => token.symbol(), '???'),
-    ]);
-
+  // Round 3 — IPFS metadata (parallel HTTP, cached in-memory for lifetime of tab)
+  const projects = await Promise.all(fundSlices.map(async (fd, i) => {
+    if (!fd) return null;
     let avatarUrl = null;
     let description = '';
-    if (ipfsURI) {
-      const meta = await fetchIPFSMetadata(ipfsURI);
+    if (fd.ipfsURI) {
+      const meta = await cachedIPFS(fd.ipfsURI);
       if (meta) {
         avatarUrl = meta.image ? ipfsToHttp(meta.image) : null;
         description = meta.description || '';
       }
     }
-
-    const raisedNum = Number(ethers.utils.formatEther(raised));
-    const capNum = Number(ethers.utils.formatEther(softCap));
-
+    const raisedNum = Number(ethers.utils.formatEther(fd.raised));
+    const capNum    = Number(ethers.utils.formatEther(fd.softCap));
     return {
-      address: addr,
-      name, symbol,
-      state: Number(state),
+      address: fd.address,
+      name: nameMap.get(i) || 'Unknown',
+      symbol: symMap.get(i) || '???',
+      state: fd.state,
       raised: raisedNum,
       softCap: capNum,
       progress: capNum > 0 ? (raisedNum / capNum) * 100 : 0,
-      endTime: Number(endTime) * 1000,
+      endTime: fd.endTime,
       avatarUrl,
       description,
     };
-  } catch (err) {
-    console.error(`Failed to load ${addr}:`, err);
-    return null;
-  }
+  }));
+
+  return projects.filter(Boolean);
 }
 
 function statusBadge(state) {
@@ -213,11 +280,13 @@ export default function Home() {
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      refreshInterval: 0,
-      dedupingInterval: 60_000,
+      refreshInterval: 30_000,
+      dedupingInterval: 10_000,
       errorRetryCount: 3,
       errorRetryInterval: 10_000,
       fallbackData: [],
+      keepPreviousData: true,
+      compare: projectsEqual,
     }
   );
 
@@ -264,9 +333,9 @@ export default function Home() {
       else if (seed.state === 3) completed.push(seed);
     }
 
-    live.sort((a, b) => b.progress - a.progress);
-    launching.sort((a, b) => a.endTime - b.endTime);
-    completed.sort((a, b) => b.progress - a.progress);
+    live.sort((a, b) => b.progress - a.progress || a.address.localeCompare(b.address));
+    launching.sort((a, b) => a.endTime - b.endTime || a.address.localeCompare(b.address));
+    completed.sort((a, b) => b.progress - a.progress || a.address.localeCompare(b.address));
 
     return { live, launching, completed, archived };
   }, [projects]);
@@ -371,7 +440,7 @@ export default function Home() {
                   ? 'Scanning IAOs...'
                   : isValidating
                     ? 'Refreshing...'
-                    : `IAO radar \u2014 ${live.length} funding \u00B7 ${launching.length} initializing \u00B7 ${completed.length} active \u00B7 auto-sync 15s`}
+                    : `IAO radar \u2014 ${live.length} funding \u00B7 ${launching.length} initializing \u00B7 ${completed.length} active \u00B7 auto-sync 30s`}
               </span>
               {!isFirstLoad && (
                 <button
@@ -461,10 +530,10 @@ export default function Home() {
                         const badge = statusBadge(p.state);
                         const isFailed = p.state === 1;
                         return (
-                          <div
+                          <Link
+                            href={p._seed ? `/agent/${p._seedId}` : `/invest/${encodeURIComponent(p.address)}`}
                             key={p.address}
-                            onClick={() => window.location.href = p._seed ? '/agent/' + p._seedId : '/invest/' + encodeURIComponent(p.address)}
-                            className={`relative group cursor-pointer p-6 rounded-2xl transition-all duration-500 bg-zinc-900/20 backdrop-blur-md border hover:shadow-[0_0_30px_rgba(37,99,235,0.1)] ${
+                            className={`block relative group p-6 rounded-2xl transition-all duration-500 bg-zinc-900/20 backdrop-blur-md border hover:shadow-[0_0_30px_rgba(37,99,235,0.1)] ${
                               p.state === 3
                                 ? 'border-emerald-500/30 hover:border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.06)]'
                                 : 'border-zinc-800 hover:border-blue-500/50'
@@ -530,7 +599,7 @@ export default function Home() {
                                 {p.state === 0 ? 'Sponsor Compute' : p.state === 3 ? 'View Agent' : p.state === 2 ? 'Initializing' : 'Details'}
                               </span>
                             </div>
-                          </div>
+                          </Link>
                         );
                       })}
                     </div>

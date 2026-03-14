@@ -9,7 +9,7 @@ export const RPC_URL      = process.env.NEXT_PUBLIC_RPC_URL      || 'https://sep
 export const EXPLORER_URL = process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://sepolia.basescan.org';
 
 // Contract addresses — env override supported with hardcoded testnet fallbacks
-export const FACTORY_ADDRESS = process.env.NEXT_PUBLIC_FACTORY_ADDRESS || '0x35DFb942904d7824B3b82E028651B0D5BfA799C1';
+export const FACTORY_ADDRESS = process.env.NEXT_PUBLIC_FACTORY_ADDRESS || '0x1745a2af322884FfDc6c9E98964A2A7d7D3CdF61';
 
 // Protocol treasury & well-known addresses
 export const TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || '0x13f2c8c780E17db74F6Ae86Bc680D1e9B594202f';
