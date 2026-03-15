@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { CHAIN_ID } from '@/lib/constants';
+import { CHAIN_ID, RPC_URL } from '@/lib/constants';
 
 const cooldownMap = new Map();
 const COOLDOWN_MS = 48 * 60 * 60 * 1000;
@@ -76,17 +76,24 @@ export async function POST(request) {
     const wallet = new ethers.Wallet(privateKey);
     const { gasPercentage, hardCapEth } = await loadPoHGConfig();
 
-    // In production, fetch userTotalGas from an on-chain indexer or gas oracle.
-    // For now, simulate with a generous mock value so the hard cap is the binding limit.
     const mockUserTotalGas = 100;
     const computedAllocation = (mockUserTotalGas * gasPercentage) / 100;
     const finalAllocation = Math.min(computedAllocation, hardCapEth);
 
     const maxAllocation = ethers.utils.parseEther(finalAllocation.toFixed(18));
 
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || RPC_URL;
+    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+    const fundContract = new ethers.Contract(
+      fundAddress,
+      ['function nonces(address) view returns (uint256)'],
+      provider
+    );
+    const nonce = await fundContract.nonces(userAddress);
+
     const messageHash = ethers.utils.solidityKeccak256(
-      ['address', 'uint256', 'address', 'uint256'],
-      [userAddress, maxAllocation, fundAddress, CHAIN_ID]
+      ['address', 'uint256', 'uint256', 'address', 'uint256'],
+      [userAddress, maxAllocation, nonce, fundAddress, CHAIN_ID]
     );
 
     const signature = await wallet.signMessage(ethers.utils.arrayify(messageHash));
@@ -98,6 +105,7 @@ export async function POST(request) {
       data: {
         signature,
         maxAllocation: maxAllocation.toString(),
+        nonce: nonce.toString(),
         signer: wallet.address,
         pohgParams: { gasPercentage, hardCapEth },
       },

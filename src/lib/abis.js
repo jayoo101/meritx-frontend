@@ -30,6 +30,7 @@ export const FUND_ABI = [
   'function raiseEndTime() view returns (uint256)',
   'function currentState() view returns (uint8)',
   'function contributions(address) view returns (uint256)',
+  'function nonces(address) view returns (uint256)',
   'function isFinalized() view returns (bool)',
   // Launch timing
   'function LAUNCH_WINDOW() view returns (uint256)',
@@ -56,6 +57,12 @@ export const FUND_ABI = [
   'function collectTradingFees() external',
   'function mintInflation() external',
   'function expandPoolObservation(uint16 nextCardinality) external',
+  // V12 protocol events
+  'event Contribution(address indexed user, uint256 amount)',
+  'event Refund(address indexed user, uint256 amount)',
+  'event LaunchAnnounced(uint256 timestamp)',
+  'event PoolCreated(address pool, uint256 lpTokenId)',
+  'event InflationMint(uint256 amount, address caller)',
 ];
 
 // ERC-20 token reads
