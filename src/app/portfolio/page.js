@@ -8,6 +8,7 @@ import { FACTORY_ADDRESS } from '@/lib/constants';
 import { useNetwork } from '@/lib/useNetwork';
 import { fmtEth, truncAddr } from '@/lib/fmt';
 import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
+import { getSignerContract, handleTxError } from '@/lib/web3';
 
 const STATE_LABELS = {
   0: { text: 'FUNDING',    color: 'text-blue-400',    dot: 'bg-blue-500 animate-pulse', border: 'border-blue-500/20' },
@@ -142,17 +143,14 @@ export default function PortfolioPage() {
     if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
     setActionAddr(addr);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fund = new ethers.Contract(addr, FUND_ABI, signer);
-      const tx = await fund.claimTokens({ gasLimit: 300_000 });
+      const { contract } = getSignerContract(addr, FUND_ABI);
+      const tx = await contract.claimTokens({ gasLimit: 300_000 });
       toast('Claiming tokens...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Agent tokens claimed!');
       loadPortfolio();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
-      else toast.error('Claim failed: ' + (err?.reason || err?.message || 'Unknown'));
+      handleTxError(err);
     } finally { setActionAddr(null); }
   };
 
@@ -160,17 +158,14 @@ export default function PortfolioPage() {
     if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
     setActionAddr(addr);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fund = new ethers.Contract(addr, FUND_ABI, signer);
-      const tx = await fund.claimRefund({ gasLimit: 300_000 });
+      const { contract } = getSignerContract(addr, FUND_ABI);
+      const tx = await contract.claimRefund({ gasLimit: 300_000 });
       toast('Processing refund...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Refund claimed!');
       loadPortfolio();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
-      else toast.error('Refund failed: ' + (err?.reason || err?.message || 'Unknown'));
+      handleTxError(err);
     } finally { setActionAddr(null); }
   };
 
@@ -178,17 +173,14 @@ export default function PortfolioPage() {
     if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
     setActionAddr(addr);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fund = new ethers.Contract(addr, FUND_ABI, signer);
-      const tx = await fund.announceLaunch({ gasLimit: 200_000 });
+      const { contract } = getSignerContract(addr, FUND_ABI);
+      const tx = await contract.announceLaunch({ gasLimit: 200_000 });
       toast('Initiating deployment notice...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Deployment notice initiated! 6-hour countdown started.');
       loadPortfolio();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
-      else toast.error('Announce failed: ' + (err?.reason || err?.message || 'Unknown'));
+      handleTxError(err);
     } finally { setActionAddr(null); }
   };
 
@@ -196,20 +188,21 @@ export default function PortfolioPage() {
     if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
     setActionAddr(addr);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fund = new ethers.Contract(addr, FUND_ABI, signer);
-      const tx = await fund.finalizeFunding({ gasLimit: 2_000_000 });
+      const { contract } = getSignerContract(addr, FUND_ABI);
+      const tx = await contract.finalizeFunding({ gasLimit: 2_000_000 });
       toast('Deploying agent: creating Uniswap V3 pool + locking LP...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Agent deployed! Pool created, LP locked permanently.');
       loadPortfolio();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
-      else {
-        const msg = err?.reason || err?.data?.message || err?.message || '';
-        const isGas = /gas|out of gas|intrinsic|UNPREDICTABLE_GAS_LIMIT/i.test(msg);
-        toast.error(isGas ? 'Out of gas — increase Gas Limit and retry.' : (err?.reason || msg || 'Launch failed'));
+      const reason = err?.reason || err?.data?.message || err?.message || '';
+      const isGas = /gas|out of gas|intrinsic|UNPREDICTABLE_GAS_LIMIT/i.test(reason) || err?.code === 'UNPREDICTABLE_GAS_LIMIT';
+      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
+        toast.error('Transaction cancelled by user.');
+      } else if (isGas) {
+        toast.error('Transaction failed — increase Gas Limit and retry.');
+      } else {
+        handleTxError(err);
       }
     } finally { setActionAddr(null); }
   };

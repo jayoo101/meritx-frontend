@@ -21,7 +21,10 @@ export async function fetchIPFSMetadata(ipfsURI) {
   const url = ipfsToHttp(ipfsURI);
   if (!url) return null;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(5000),
+      cache: 'force-cache',
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch {

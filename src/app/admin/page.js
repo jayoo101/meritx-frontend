@@ -11,6 +11,7 @@ import {
 } from '@/lib/constants';
 import { fmtEth, truncAddr } from '@/lib/fmt';
 import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
+import { getSignerContract, handleTxError } from '@/lib/web3';
 
 const ADMIN_WALLET = "0x9638B4Aa8D48222D89f320417D5c5f3ED4c51b67".toLowerCase();
 
@@ -227,15 +228,13 @@ export default function AdminDashboard() {
     if (typeof window === 'undefined' || !window.ethereum || !isAuthorized) return;
     setCollectingFees(prev => ({ ...prev, [fundAddr]: true }));
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fund = new ethers.Contract(fundAddr, FUND_ABI, signer);
-      const tx = await fund.collectTradingFees({ gasLimit: 300000 });
+      const { contract } = getSignerContract(fundAddr, FUND_ABI);
+      const tx = await contract.collectTradingFees({ gasLimit: 300000 });
       await tx.wait();
       toast.success('Fees collected!');
       fetchSystemData();
     } catch (err) {
-      toast.error(err?.reason || 'Collection failed');
+      handleTxError(err);
     } finally {
       setCollectingFees(prev => ({ ...prev, [fundAddr]: false }));
     }

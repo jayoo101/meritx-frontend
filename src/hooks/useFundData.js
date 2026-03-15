@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import useSWR from 'swr';
 import { ethers } from 'ethers';
 import { RPC_URL } from '@/lib/constants';
-import { FUND_ABI, TOKEN_ABI } from '@/lib/contracts/fund';
+import { FUND_ABI, TOKEN_ABI } from '@/lib/abis';
 import { ipfsToHttp, fetchIPFSMetadata } from '@/lib/ipfs';
 
 /**

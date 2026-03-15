@@ -16,6 +16,7 @@ import {
   EXPLORER_URL,
 } from '@/lib/constants';
 import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
+import { getSignerContract, handleTxError } from '@/lib/web3';
 
 // ---- Circular Progress Ring ----
 
@@ -346,17 +347,14 @@ export default function Navbar() {
     if (typeof window === 'undefined' || !window.ethereum) return toast.error('Wallet not connected.');
     setActionAddr(addr);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fund = new ethers.Contract(addr, FUND_ABI, signer);
-      const tx = await fund.claimTokens({ gasLimit: 300000 });
+      const { contract } = getSignerContract(addr, FUND_ABI);
+      const tx = await contract.claimTokens({ gasLimit: 300000 });
       toast('Claiming tokens...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Agent tokens claimed!');
       fetchDrawerData();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
-      else toast.error('Claim failed: ' + (err?.reason || err?.message || 'Unknown'));
+      handleTxError(err);
     } finally { setActionAddr(null); }
   };
 
@@ -364,17 +362,14 @@ export default function Navbar() {
     if (typeof window === 'undefined' || !window.ethereum) return toast.error('Wallet not connected.');
     setActionAddr(addr);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fund = new ethers.Contract(addr, FUND_ABI, signer);
-      const tx = await fund.claimRefund({ gasLimit: 300000 });
+      const { contract } = getSignerContract(addr, FUND_ABI);
+      const tx = await contract.claimRefund({ gasLimit: 300000 });
       toast('Processing refund...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Refund claimed!');
       fetchDrawerData();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) toast.error('Transaction rejected');
-      else toast.error('Refund failed: ' + (err?.reason || err?.message || 'Unknown'));
+      handleTxError(err);
     } finally { setActionAddr(null); }
   };
 

@@ -40,9 +40,15 @@ export async function GET() {
 
 export async function POST(request) {
   const adminWallet = process.env.ADMIN_WALLET?.toLowerCase();
-  const authHeader = request.headers.get('x-admin-wallet')?.toLowerCase();
+  if (!adminWallet) {
+    return NextResponse.json(
+      { success: false, error: 'ADMIN_WALLET not configured on server' },
+      { status: 500 }
+    );
+  }
 
-  if (adminWallet && authHeader !== adminWallet) {
+  const authHeader = request.headers.get('x-admin-wallet')?.toLowerCase();
+  if (authHeader !== adminWallet) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized — wallet mismatch' },
       { status: 403 }

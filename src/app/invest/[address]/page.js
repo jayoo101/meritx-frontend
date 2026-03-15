@@ -16,7 +16,8 @@ import { useFundData } from '@/hooks/useFundData';
 import { useUserContribution } from '@/hooks/useUserContribution';
 import { useCountdown } from '@/hooks/useCountdown';
 import { fmtEth, truncAddr } from '@/lib/fmt';
-import { FUND_ABI } from '@/lib/contracts/fund';
+import { FUND_ABI } from '@/lib/abis';
+import { requireWallet, getSignerContract, handleTxError } from '@/lib/web3';
 import InflationStats from '@/components/InflationStats';
 
 export default function InvestPage() {
@@ -87,14 +88,7 @@ export default function InvestPage() {
       setInvestError(inputAmt <= 0 ? 'Enter a valid ETH amount' : `Blocked: ${inputAmt} + ${currentTotal} = ${(inputAmt + currentTotal).toFixed(4)} ETH exceeds ${limit} ETH limit`);
       return;
     }
-    if (typeof window === 'undefined' || !window.ethereum) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!account) {
-      setInvestError('Wallet not connected.');
-      return;
-    }
+    if (!requireWallet() || !account) { setInvestError('Wallet not connected.'); return; }
     if (!isCorrectChain) {
       toast.error('Wrong network — switch to Base Sepolia first.');
       return;
@@ -105,9 +99,7 @@ export default function InvestPage() {
     setInvestError('');
 
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fundContract = new ethers.Contract(address, FUND_ABI, signer);
+      const { signer, contract: fundContract } = getSignerContract(address, FUND_ABI);
       const userAddress = await signer.getAddress();
 
       const currentContribution = await fundContract.contributions(userAddress);
@@ -157,15 +149,7 @@ export default function InvestPage() {
       }, 3000);
     } catch (err) {
       setProcessStatus('');
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
-        setInvestError('Transaction rejected by user');
-      } else if (err?.message?.includes('insufficient')) {
-        setInvestError('Insufficient ETH balance');
-      } else {
-        const reason = err?.reason || err?.error?.reason || err?.data?.message || err?.message || 'Unknown error';
-        setInvestError(`Transaction failed: ${reason}`);
-        toast.error(reason);
-      }
+      setInvestError(handleTxError(err, { showToast: false }));
       setTimeout(() => setInvestError(''), 5000);
     } finally {
       setIsProcessing(false);
@@ -173,136 +157,79 @@ export default function InvestPage() {
   }, [address, account, amount, myContribution, isCorrectChain, refreshAll, refreshContribution]);
 
   const handleRefund = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!account) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!isCorrectChain) {
-      toast.error('Wrong network — switch to Base Sepolia first.');
-      return;
-    }
+    if (!requireWallet() || !account) return;
+    if (!isCorrectChain) { toast.error('Wrong network — switch to Base Sepolia first.'); return; }
     setIsRefunding(true);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const tx = await new ethers.Contract(address, FUND_ABI, signer).claimRefund();
+      const { contract } = getSignerContract(address, FUND_ABI);
+      const tx = await contract.claimRefund();
       toast('Processing refund...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Refund claimed successfully!');
       refreshAll();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
-        toast.error('Refund rejected by user');
-      } else {
-        const reason = err?.reason || err?.error?.reason || err?.data?.message || err?.message || 'Unknown error';
-        toast.error(`Refund failed: ${reason}`);
-      }
+      handleTxError(err);
     } finally {
       setIsRefunding(false);
     }
   }, [address, account, isCorrectChain, refreshAll]);
 
   const handleClaimTokens = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!account) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!isCorrectChain) {
-      toast.error('Wrong network — switch to Base Sepolia first.');
-      return;
-    }
+    if (!requireWallet() || !account) return;
+    if (!isCorrectChain) { toast.error('Wrong network — switch to Base Sepolia first.'); return; }
     setIsClaimingTokens(true);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const tx = await new ethers.Contract(address, FUND_ABI, signer).claimTokens();
+      const { contract } = getSignerContract(address, FUND_ABI);
+      const tx = await contract.claimTokens();
       toast('Claiming agent tokens...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Agent tokens claimed successfully!');
       refreshAll();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
-        toast.error('Transaction rejected by user');
-      } else {
-        const reason = err?.reason || err?.error?.reason || err?.data?.message || err?.message || 'Unknown error';
-        toast.error(`Claim failed: ${reason}`);
-      }
+      handleTxError(err);
     } finally {
       setIsClaimingTokens(false);
     }
   }, [address, account, isCorrectChain, refreshAll]);
 
   const handleAnnounce = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!account) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!isCorrectChain) {
-      toast.error('Wrong network — switch to Base Sepolia first.');
-      return;
-    }
+    if (!requireWallet() || !account) return;
+    if (!isCorrectChain) { toast.error('Wrong network — switch to Base Sepolia first.'); return; }
     setIsAnnouncing(true);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const tx = await new ethers.Contract(address, FUND_ABI, signer).announceLaunch();
+      const { contract } = getSignerContract(address, FUND_ABI);
+      const tx = await contract.announceLaunch();
       toast('Announcing launch...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Deployment notice initiated! 6-hour countdown has begun.');
       refreshAll();
     } catch (err) {
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
-        toast.error('Transaction rejected');
-      } else {
-        const reason = err?.reason || err?.error?.reason || err?.data?.message || err?.message || 'Announcement failed';
-        toast.error(reason);
-      }
+      handleTxError(err);
     } finally {
       setIsAnnouncing(false);
     }
   }, [address, account, isCorrectChain, refreshAll]);
 
   const handleLaunch = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!account) {
-      toast.error('Wallet not connected.');
-      return;
-    }
-    if (!isCorrectChain) {
-      toast.error('Wrong network — switch to Base Sepolia first.');
-      return;
-    }
+    if (!requireWallet() || !account) return;
+    if (!isCorrectChain) { toast.error('Wrong network — switch to Base Sepolia first.'); return; }
     setIsLaunching(true);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const tx = await new ethers.Contract(address, FUND_ABI, signer).finalizeFunding({ gasLimit: 2_000_000 });
+      const { contract } = getSignerContract(address, FUND_ABI);
+      const tx = await contract.finalizeFunding({ gasLimit: 2_000_000 });
       toast('Deploying agent: creating Uniswap V3 pool + locking LP...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Agent deployed! Pool created, LP locked permanently.');
       refreshAll();
     } catch (err) {
+      const reason = err?.reason || err?.error?.reason || err?.data?.message || err?.message || '';
+      const isGas = /gas|out of gas|intrinsic|UNPREDICTABLE_GAS_LIMIT/i.test(reason) || err?.code === 'UNPREDICTABLE_GAS_LIMIT';
       if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
-        toast.error('Transaction rejected');
+        toast.error('Transaction cancelled by user.');
+      } else if (isGas) {
+        toast.error('Transaction failed — increase Gas Limit and retry.');
       } else {
-        const reason = err?.reason || err?.error?.reason || err?.data?.message || err?.message || '';
-        const isGas = /gas|out of gas|intrinsic|UNPREDICTABLE_GAS_LIMIT/i.test(reason) || err?.code === 'UNPREDICTABLE_GAS_LIMIT';
-        toast.error(isGas ? 'Transaction failed — increase Gas Limit and retry.' : (reason || 'Finalization failed'));
+        handleTxError(err);
       }
     } finally {
       setIsLaunching(false);

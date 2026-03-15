@@ -8,6 +8,7 @@ import { FACTORY_ADDRESS, LISTING_FEE_ETH } from '@/lib/constants';
 import { useNetwork } from '@/lib/useNetwork';
 import { useWallet } from '@/hooks/useWallet';
 import { FACTORY_ABI } from '@/lib/abis';
+import { getSignerContract } from '@/lib/web3';
 
 const PINATA_JWT = process.env.NEXT_PUBLIC_PINATA_JWT;
 const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
@@ -37,7 +38,9 @@ export default function LaunchPage() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const fileInputRef = useRef(null);
   const [acknowledged, setAcknowledged] = useState(false);
-  const [isLaunching, setIsLaunching] = useState(false);
+  // Granular tx lifecycle: idle → uploading_avatar → uploading_meta → confirming_wallet → mining → success
+  const [txStatus, setTxStatus] = useState('idle');
+  const isLaunching = txStatus !== 'idle' && txStatus !== 'success';
 
   const handleAvatarChange = useCallback((e) => {
     const file = e.target.files?.[0];
@@ -76,9 +79,31 @@ export default function LaunchPage() {
     }
   }, [connectWallet]);
 
+  const compressImage = useCallback(async (file, maxWidth = 800, quality = 0.8) => {
+    if (!file.type.startsWith('image/') || file.size < 200 * 1024) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => resolve(blob ? new File([blob], file.name, { type: 'image/webp' }) : file),
+          'image/webp',
+          quality,
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = URL.createObjectURL(file);
+    });
+  }, []);
+
   const uploadFileToPinata = useCallback(async (file) => {
+    const compressed = await compressImage(file);
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', compressed);
     form.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
     const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
       method: 'POST',
@@ -88,7 +113,7 @@ export default function LaunchPage() {
     if (!res.ok) throw new Error(`Pinata file upload failed (${res.status})`);
     const data = await res.json();
     return data.IpfsHash;
-  }, []);
+  }, [compressImage]);
 
   const uploadJSONToPinata = useCallback(async (json) => {
     const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
@@ -111,18 +136,16 @@ export default function LaunchPage() {
     if (!acknowledged) return toast.error('Acknowledge the terms before launching');
     if (typeof window === 'undefined' || !window.ethereum) return toast.error('Wallet not connected.');
     if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
-
-    setIsLaunching(true);
-    const toastId = toast.loading('Uploading metadata to IPFS...');
+    if (!PINATA_JWT) return toast.error('IPFS service is not configured. Please contact the team.');
 
     try {
-      // Step A: Upload avatar image to Pinata (if provided)
       let imageCID = '';
       if (avatarFile) {
+        setTxStatus('uploading_avatar');
         imageCID = await uploadFileToPinata(avatarFile);
       }
 
-      // Step B: Build metadata JSON
+      setTxStatus('uploading_meta');
       const metadata = {
         name: name.trim(),
         symbol: symbol.trim().toUpperCase(),
@@ -135,23 +158,17 @@ export default function LaunchPage() {
           ...(websiteUrl?.trim() && { website: websiteUrl.trim() }),
         },
       };
-
-      // Step C: Upload metadata JSON to Pinata
-      toast.loading('Pinning metadata JSON to IPFS...', { id: toastId });
       const metadataCID = await uploadJSONToPinata(metadata);
       const ipfsURI = `ipfs://${metadataCID}`;
 
-      // Step D: Contract interaction
-      toast.loading('Deploying Agent to Base...', { id: toastId });
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
+      setTxStatus('confirming_wallet');
+      const { contract: factory } = getSignerContract(FACTORY_ADDRESS, FACTORY_ABI);
 
       const contractListingFee = await factory.LISTING_FEE();
       const valueWei = ethers.utils.parseEther(LISTING_FEE_ETH);
       if (!contractListingFee.eq(valueWei)) {
-        toast.error(`Fee mismatch: contract expects ${ethers.utils.formatEther(contractListingFee)} ETH`, { id: toastId });
-        setIsLaunching(false);
+        toast.error(`Fee mismatch: contract expects ${ethers.utils.formatEther(contractListingFee)} ETH`);
+        setTxStatus('idle');
         return;
       }
 
@@ -159,10 +176,11 @@ export default function LaunchPage() {
         value: valueWei,
       });
 
-      toast.loading('Waiting for block confirmation...', { id: toastId });
+      setTxStatus('mining');
       await tx.wait();
 
-      toast.success(`Agent initialized! ${name} ($${symbol}) is now on-chain`, { id: toastId });
+      setTxStatus('success');
+      toast.success(`Agent initialized! ${name} ($${symbol}) is now on-chain`);
       setName('');
       setSymbol('');
       setDescription('');
@@ -172,10 +190,11 @@ export default function LaunchPage() {
       setSkillEndpoint('');
       clearAvatar();
       setAcknowledged(false);
+      setTimeout(() => setTxStatus('idle'), 4000);
     } catch (err) {
-      toast.dismiss(toastId);
+      setTxStatus('idle');
       if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
-        toast.error('Transaction rejected by user');
+        toast.error('Transaction cancelled by user.');
       } else {
         const msg = err?.reason ?? err?.data?.message ?? err?.message ?? 'Unknown error';
         if (String(msg).includes('!fee')) {
@@ -184,12 +203,10 @@ export default function LaunchPage() {
           toast.error(`Initialization failed: ${msg}`);
         }
       }
-    } finally {
-      setIsLaunching(false);
     }
   }, [name, symbol, description, acknowledged, isCorrectChain, avatarFile, skillEndpoint, twitterUrl, telegramUrl, websiteUrl, clearAvatar, uploadFileToPinata, uploadJSONToPinata]);
 
-  const inputBase = 'w-full py-3.5 px-4 rounded-xl font-mono text-sm text-white placeholder:text-zinc-600 bg-black/50 border border-zinc-700 focus:outline-none focus:ring-1 focus:border-blue-500 focus:ring-blue-500/20 transition-colors';
+  const inputBase = `w-full py-3.5 px-4 rounded-xl font-mono text-sm text-white placeholder:text-zinc-600 bg-black/50 border border-zinc-700 focus:outline-none focus:ring-1 focus:border-blue-500 focus:ring-blue-500/20 transition-colors ${isLaunching ? 'opacity-50 pointer-events-none' : ''}`;
 
   return (
     <div className="min-h-screen font-sans selection:bg-blue-600/30 text-zinc-300" style={{ background: '#050505' }}>
@@ -385,22 +402,25 @@ export default function LaunchPage() {
                   Connect Wallet to Initialize
                 </button>
               ) : (
-                <button
-                  onClick={handleLaunch}
-                  disabled={!isArmed}
-                  className={[
-                    'order-1 sm:order-2 flex-1 min-w-[200px] py-4 rounded-xl font-black text-sm uppercase tracking-wider transition-all',
-                    isArmed
-                      ? 'text-white bg-blue-600 hover:bg-blue-500 border border-blue-500 hover:shadow-[0_0_24px_rgba(37,99,235,0.25)]'
-                      : 'text-zinc-500 bg-zinc-800 border border-zinc-700 cursor-not-allowed opacity-60',
-                  ].join(' ')}
-                >
-                  {isLaunching ? (
-                    <span className="animate-pulse font-mono">Deploying Agent to Base...</span>
-                  ) : (
-                    <>Initialize IAO ({LISTING_FEE_ETH} ETH)</>
-                  )}
-                </button>
+                <div className="order-1 sm:order-2 flex-1 min-w-[200px] space-y-3">
+                  {isLaunching && <LaunchStepIndicator txStatus={txStatus} />}
+                  <button
+                    onClick={handleLaunch}
+                    disabled={!isArmed}
+                    className={[
+                      'w-full py-4 rounded-xl font-black text-sm uppercase tracking-wider transition-all',
+                      txStatus === 'success'
+                        ? 'text-white bg-emerald-600 border border-emerald-500'
+                        : isArmed
+                          ? 'text-white bg-blue-600 hover:bg-blue-500 border border-blue-500 hover:shadow-[0_0_24px_rgba(37,99,235,0.25)]'
+                          : isLaunching
+                            ? 'text-white bg-blue-600/80 border border-blue-500/50 cursor-wait'
+                            : 'text-zinc-500 bg-zinc-800 border border-zinc-700 cursor-not-allowed opacity-60',
+                    ].join(' ')}
+                  >
+                    <LaunchButtonLabel txStatus={txStatus} fee={LISTING_FEE_ETH} />
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -442,4 +462,57 @@ export default function LaunchPage() {
       </main>
     </div>
   );
+}
+
+const LAUNCH_STEPS = [
+  { key: 'uploading_avatar', label: 'Compressing & uploading image to IPFS...' },
+  { key: 'uploading_meta',   label: 'Pinning metadata JSON to IPFS...' },
+  { key: 'confirming_wallet', label: 'Please confirm in your wallet...' },
+  { key: 'mining',           label: 'Mining on Base... (takes ~10s)' },
+  { key: 'success',          label: 'Agent deployed!' },
+];
+
+function LaunchStepIndicator({ txStatus }) {
+  const currentIdx = LAUNCH_STEPS.findIndex(s => s.key === txStatus);
+  return (
+    <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.04] p-4 space-y-2.5">
+      {LAUNCH_STEPS.map((step, i) => {
+        const isDone = i < currentIdx;
+        const isActive = i === currentIdx;
+        const isPending = i > currentIdx;
+        return (
+          <div key={step.key} className="flex items-center gap-3">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold border ${
+              isDone ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                : isActive ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 animate-pulse'
+                : 'bg-zinc-800/50 border-zinc-700 text-zinc-600'
+            }`}>
+              {isDone ? '✓' : i + 1}
+            </div>
+            <span className={`text-xs font-mono ${
+              isDone ? 'text-emerald-400/70 line-through'
+                : isActive ? 'text-blue-400 font-bold'
+                : 'text-zinc-600'
+            }`}>
+              {step.label}
+            </span>
+            {isActive && isPending === false && txStatus !== 'success' && (
+              <span className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin ml-auto shrink-0" />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LaunchButtonLabel({ txStatus, fee }) {
+  switch (txStatus) {
+    case 'uploading_avatar':  return <span className="animate-pulse font-mono">Uploading Image to IPFS...</span>;
+    case 'uploading_meta':    return <span className="animate-pulse font-mono">Pinning Metadata to IPFS...</span>;
+    case 'confirming_wallet': return <span className="animate-pulse font-mono">Confirm in Wallet...</span>;
+    case 'mining':            return <span className="animate-pulse font-mono">Mining on Base... ~10s</span>;
+    case 'success':           return <span className="font-mono">Agent Deployed ✓</span>;
+    default:                  return <>Initialize IAO ({fee} ETH)</>;
+  }
 }

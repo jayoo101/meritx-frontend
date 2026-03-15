@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { FUND_ABI } from '@/lib/contracts/fund';
+import { FUND_ABI } from '@/lib/abis';
 
 /**
  * Hook: Fetch the connected user's contribution for a given fund.

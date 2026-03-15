@@ -4,6 +4,7 @@ import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
 import { useNetwork } from '@/lib/useNetwork';
 import { FUND_ABI, TOKEN_ABI } from '@/lib/abis';
+import { getSignerContract, getReadContract, handleTxError } from '@/lib/web3';
 
 export default function InflationStats({ fundAddress }) {
   const [data, setData] = useState(null);
@@ -15,8 +16,7 @@ export default function InflationStats({ fundAddress }) {
   const fetchData = useCallback(async () => {
     if (!fundAddress || typeof window === 'undefined' || !window.ethereum) return;
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const fund = new ethers.Contract(fundAddress, FUND_ABI, provider);
+      const fund = getReadContract(fundAddress, FUND_ABI);
 
       const [finalized, pool] = await Promise.all([
         fund.isFinalized(),
@@ -30,7 +30,7 @@ export default function InflationStats({ fundAddress }) {
       }
 
       const tokenAddr = await fund.projectToken();
-      const token = new ethers.Contract(tokenAddr, TOKEN_ABI, provider);
+      const token = getReadContract(tokenAddr, TOKEN_ABI);
 
       let twapTick, targetSupply, currentSupply, initialSupply, lastMint, cooldown;
       try {
@@ -85,21 +85,14 @@ export default function InflationStats({ fundAddress }) {
     if (!isCorrectChain) { toast.error('Wrong network — switch to Base Sepolia first.'); return; }
     setMinting(true);
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const fund = new ethers.Contract(fundAddress, FUND_ABI, signer);
-      const tx = await fund.mintInflation({ gasLimit: 500000 });
+      const { contract } = getSignerContract(fundAddress, FUND_ABI);
+      const tx = await contract.mintInflation({ gasLimit: 500000 });
       toast('Minting inflation...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Inflation minted! 0.1% caller reward sent to your wallet.');
       fetchData();
     } catch (err) {
-      console.error('mintInflation failed:', err);
-      if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
-        toast.error('Transaction rejected');
-      } else {
-        toast.error(err?.reason || err?.message || 'Mint failed');
-      }
+      handleTxError(err);
     } finally {
       setMinting(false);
     }

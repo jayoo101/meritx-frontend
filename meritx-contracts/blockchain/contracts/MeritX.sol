@@ -3,8 +3,6 @@ pragma solidity 0.8.20;
 
 import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {TickMath} from "./libraries/TickMath.sol";
 
 // ---------- External Interfaces ----------
 
@@ -101,7 +99,7 @@ contract MeritXToken {
 }
 
 // ---------- MeritX Fund -- Raise + PoHG + LP Creation/Lock + PoP ----------
-contract MeritXFund is ReentrancyGuard {
+contract MeritXFund {
     enum State { Funding, Failed, Success_Isolated, Ready_For_DEX }
 
     MeritXToken public projectToken;
@@ -113,8 +111,8 @@ contract MeritXFund is ReentrancyGuard {
 
     // -- LP constants --
     uint24  internal constant FEE_TIER  = 3000;
-    int24   internal constant TICK_LOW  = -60000;
-    int24   internal constant TICK_HIGH = 60000;
+    int24   internal constant TICK_LOW  = -887220;
+    int24   internal constant TICK_HIGH = 887220;
 
     // -- Raise parameters --
     uint256 public constant SOFT_CAP           = 0.001 ether;
@@ -140,14 +138,6 @@ contract MeritXFund is ReentrancyGuard {
     uint256 public raiseEndTime;
     bool    public isFinalized;
     mapping(address => uint256) public contributions;
-    mapping(address => uint256) public nonces;
-
-    // -- Protocol events --
-    event Contribution(address indexed user, uint256 amount);
-    event Refund(address indexed user, uint256 amount);
-    event LaunchAnnounced(uint256 timestamp);
-    event PoolCreated(address pool, uint256 lpTokenId);
-    event InflationMint(uint256 amount, address caller);
 
     // -- Anti-stealth launch --
     uint256 public launchAnnouncementTime;
@@ -196,17 +186,13 @@ contract MeritXFund is ReentrancyGuard {
         require(block.timestamp <= raiseEndTime, "!time");
         require(msg.value > 0, "!val");
         require(_maxAlloc <= MAX_ALLOCATION, "!ceil");
-
-        bytes32 h = keccak256(
-            abi.encodePacked(msg.sender, _maxAlloc, nonces[msg.sender], address(this), block.chainid)
-        );
+        
+        bytes32 h = keccak256(abi.encodePacked(msg.sender, _maxAlloc, address(this), block.chainid));
         require(_recover(h, _sig) == backendSigner, "!sig");
-        nonces[msg.sender]++;
-
+        
         require(contributions[msg.sender] + msg.value <= _maxAlloc, "!alloc");
         contributions[msg.sender] += msg.value;
         totalRaised += msg.value;
-        emit Contribution(msg.sender, msg.value);
     }
 
     function _recover(bytes32 _h, bytes memory _s) internal pure returns (address) {
@@ -238,7 +224,7 @@ contract MeritXFund is ReentrancyGuard {
 
     // ---- Claims ----
 
-    function claimTokens() external nonReentrant {
+    function claimTokens() external {
         require(currentState() == State.Ready_For_DEX, "!ready");
         uint256 a = contributions[msg.sender];
         require(a > 0, "!contrib");
@@ -246,7 +232,7 @@ contract MeritXFund is ReentrancyGuard {
         projectToken.transfer(msg.sender, (a * RETAIL_POOL) / totalRaised);
     }
 
-    function claimRefund() external nonReentrant {
+    function claimRefund() external {
         State s = currentState();
         require(
             s == State.Failed ||
@@ -262,7 +248,6 @@ contract MeritXFund is ReentrancyGuard {
         contributions[msg.sender] = 0;
         (bool ok, ) = payable(msg.sender).call{value: a}("");
         require(ok, "!refund");
-        emit Refund(msg.sender, a);
     }
 
     // ---- Anti-Stealth Launch ----
@@ -275,7 +260,6 @@ contract MeritXFund is ReentrancyGuard {
         require(!isFinalized, "!done");
         require(launchAnnouncementTime == 0, "Already announced");
         launchAnnouncementTime = block.timestamp;
-        emit LaunchAnnounced(block.timestamp);
     }
 
     // ---- Finalization ----
@@ -287,7 +271,6 @@ contract MeritXFund is ReentrancyGuard {
             block.timestamp >= launchAnnouncementTime + PRE_LAUNCH_NOTICE,
             "6h notice required"
         );
-        require(block.timestamp > launchAnnouncementTime, "same block launch blocked");
         require(
             block.timestamp <= launchAnnouncementTime + PRE_LAUNCH_NOTICE + LAUNCH_EXPIRATION,
             "Launch expired after notice"
@@ -296,8 +279,9 @@ contract MeritXFund is ReentrancyGuard {
         require(totalRaised >= SOFT_CAP, "!cap");
         require(!isFinalized, "!done");
         isFinalized = true;
-
+        
         poolCreationTime = block.timestamp;
+        // [FIX HIGH-2]: Lock the inflation engine for the first cooldown period
         lastMintTime = block.timestamp;
 
         uint256 raised = totalRaised;
@@ -318,23 +302,25 @@ contract MeritXFund is ReentrancyGuard {
         address t1 = tkn0 ? weth : address(projectToken);
         uint256 a0 = tkn0 ? tokensForPool : ethForPool;
         uint256 a1 = tkn0 ? ethForPool    : tokensForPool;
-        assert(t0 < t1);
 
-        uint160 sqrtPrice;
-        {
-            require(a0 > 0 && a1 > 0, "!amount");
-            int256 rawTick = (int256(Math.log2(a1)) - int256(Math.log2(a0))) * 6932;
-            if (rawTick < -800000) rawTick = -800000;
-            if (rawTick > 800000) rawTick = 800000;
-            sqrtPrice = TickMath.getSqrtRatioAtTick(int24(rawTick));
-        }
+        uint160 sqrtPrice = uint160(
+            (Math.sqrt(a1) << 96) / Math.sqrt(a0)
+        );
 
         INonfungiblePositionManager pm =
             INonfungiblePositionManager(positionManager);
         address pool = pm.createAndInitializePoolIfNecessary(
             t0, t1, FEE_TIER, sqrtPrice
         );
-        IUniswapV3Pool(pool).increaseObservationCardinalityNext(16);
+
+        // [FIX HIGH-1]: Front-running defense with 0.01% tolerance for rounding dust
+        {
+            (uint160 actualSqrt,,,,,,) = IUniswapV3Pool(pool).slot0();
+            uint160 diff = actualSqrt > sqrtPrice
+                ? actualSqrt - sqrtPrice
+                : sqrtPrice - actualSqrt;
+            require(diff < sqrtPrice / 10000, "Price deviation too high");
+        }
 
         (uint256 tokenId,,,) = pm.mint(
             INonfungiblePositionManager.MintParams({
@@ -362,16 +348,16 @@ contract MeritXFund is ReentrancyGuard {
         (bool f1, ) = payable(platformTreasury).call{value: fee}("");
         require(f1, "!fee");
 
+        // WETH dust sweep (safe — not used for user claims)
         uint256 leftoverWETH = IWETH(weth).balanceOf(address(this));
         if (leftoverWETH > 0) {
             IWETH(weth).transfer(platformTreasury, leftoverWETH);
         }
-
-        emit PoolCreated(pool, tokenId);
+        // Token dust left by Uniswap V3 mint rounding stays in-contract alongside
+        // RETAIL_POOL; claimTokens() distributes pro-rata from the actual balance.
     }
 
     function expandPoolObservation(uint16 nextCardinality) external {
-        require(msg.sender == projectOwner, "!owner");
         require(uniswapPool != address(0), "!pool");
         IUniswapV3Pool(uniswapPool).increaseObservationCardinalityNext(nextCardinality);
     }
@@ -424,7 +410,6 @@ contract MeritXFund is ReentrancyGuard {
         uint256 cr = (m * CALLER_REWARD_BPS) / 10_000;
         projectToken.mint(projectOwner, m - cr);
         if (cr > 0) projectToken.mint(msg.sender, cr);
-        emit InflationMint(m, msg.sender);
     }
 }
 
