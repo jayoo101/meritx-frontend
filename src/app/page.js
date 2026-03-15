@@ -6,12 +6,13 @@ import useSWR from 'swr';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { FileText, Github } from 'lucide-react';
-import { FACTORY_ADDRESS, RPC_URL } from '@/lib/constants';
+import { FACTORY_ADDRESS, RPC_URL, CHAIN_ID } from '@/lib/constants';
 import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
 import { useAgentMetadata } from '@/hooks/useAgentMetadata';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const RPC_TIMEOUT_MS = 8_000;
 
 // ── Multicall3 (canonical address, deployed on all EVM chains incl. Base) ──
 const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
@@ -21,6 +22,12 @@ const MC_ABI = [
 const fundIface = new ethers.utils.Interface(FUND_ABI);
 const tokenIface = new ethers.utils.Interface(TOKEN_ABI);
 const FUND_READS = ['projectToken', 'totalRaised', 'SOFT_CAP', 'currentState', 'raiseEndTime', 'ipfsURI'];
+
+// Module-level provider — reused across SWR fetches (avoids eth_chainId handshake)
+const _provider = new ethers.providers.StaticJsonRpcProvider(
+  { url: RPC_URL, timeout: RPC_TIMEOUT_MS },
+  CHAIN_ID,
+);
 
 function decodeSafe(iface, fn, data) {
   try { return iface.decodeFunctionResult(fn, data)[0]; } catch { return null; }
@@ -39,13 +46,15 @@ function projectsEqual(a, b) {
   });
 }
 
-async function fetchAllProjects() {
-  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-  const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
-  const addresses = await factory.getAllProjects();
-  if (addresses.length === 0) return [];
+async function _fetchProjects() {
+  console.time('[MeritX] RPC_TOTAL');
+  const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, _provider);
+  const mc = new ethers.Contract(MULTICALL3, MC_ABI, _provider);
 
-  const mc = new ethers.Contract(MULTICALL3, MC_ABI, provider);
+  console.time('[MeritX] RPC_getAllProjects');
+  const addresses = await factory.getAllProjects();
+  console.timeEnd('[MeritX] RPC_getAllProjects');
+  if (addresses.length === 0) { console.timeEnd('[MeritX] RPC_TOTAL'); return []; }
 
   // Round 1 — batch ALL fund reads into a single RPC call
   const fundCalls = addresses.flatMap(addr =>
@@ -55,7 +64,10 @@ async function fetchAllProjects() {
       callData: fundIface.encodeFunctionData(fn),
     }))
   );
+  console.time('[MeritX] RPC_multicall_funds');
   const r1 = await mc.aggregate3(fundCalls);
+  console.timeEnd('[MeritX] RPC_multicall_funds');
+
   const stride = FUND_READS.length;
   const fundSlices = [];
   const tokenAddrs = [];
@@ -99,7 +111,11 @@ async function fetchAllProjects() {
       { target: addr, allowFailure: true, callData: tokenIface.encodeFunctionData('symbol') },
     );
   });
+
+  console.time('[MeritX] RPC_multicall_tokens');
   const r2 = tokenCalls.length > 0 ? await mc.aggregate3(tokenCalls) : [];
+  console.timeEnd('[MeritX] RPC_multicall_tokens');
+
   const nameMap = new Map();
   const symMap  = new Map();
   validIdxs.forEach((oi, ci) => {
@@ -124,7 +140,17 @@ async function fetchAllProjects() {
     };
   });
 
+  console.timeEnd('[MeritX] RPC_TOTAL');
   return projects.filter(Boolean);
+}
+
+async function fetchAllProjects() {
+  return Promise.race([
+    _fetchProjects(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('RPC timeout — Base Sepolia did not respond within 8s')), RPC_TIMEOUT_MS)
+    ),
+  ]);
 }
 
 function statusBadge(state) {
@@ -375,7 +401,8 @@ export default function Home() {
     return (allProjects || []).filter(p => !hiddenMap[p.address]);
   }, [allProjects, hiddenMap]);
 
-  const isFirstLoad = !allProjects || (allProjects.length === 0 && isValidating && !error);
+  const hasNoData = !allProjects || allProjects.length === 0;
+  const isFirstLoad = hasNoData && isValidating && !error;
 
   const [activeTab, setActiveTab] = useState('live');
 
@@ -572,41 +599,36 @@ export default function Home() {
           </div>
 
           <ProjectErrorBoundary>
-            {isFirstLoad && !error ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
-              </div>
-            ) : (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
-                >
-                  {tabProjects.length === 0 ? (
-                    <div className="text-center py-20 space-y-3">
-                      <p className="text-zinc-500 font-mono text-sm">
-                        {activeTab === 'live' && 'Searching for active protocols...'}
-                        {activeTab === 'launching' && 'No agents initializing.'}
-                        {activeTab === 'completed' && 'No active agents yet.'}
-                        {activeTab === 'archived' && 'No archived agents.'}
-                      </p>
-                      {activeTab === 'live' && (
-                        <Link href="/launch" className="text-blue-400 text-xs font-bold hover:underline">Launch IAO &rarr;</Link>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {tabProjects.map((p) => (
-                        <ProjectCard key={p.address} project={p} />
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            )}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                {tabProjects.length === 0 && !isFirstLoad ? (
+                  <div className="text-center py-20 space-y-3">
+                    <p className="text-zinc-500 font-mono text-sm">
+                      {activeTab === 'live' && 'Searching for active protocols...'}
+                      {activeTab === 'launching' && 'No agents initializing.'}
+                      {activeTab === 'completed' && 'No active agents yet.'}
+                      {activeTab === 'archived' && 'No archived agents.'}
+                    </p>
+                    {activeTab === 'live' && (
+                      <Link href="/launch" className="text-blue-400 text-xs font-bold hover:underline">Launch IAO &rarr;</Link>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {tabProjects.map((p) => (
+                      <ProjectCard key={p.address} project={p} />
+                    ))}
+                    {isFirstLoad && [1, 2, 3].map(i => <SkeletonCard key={`sk-${i}`} />)}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </ProjectErrorBoundary>
         </section>
 
