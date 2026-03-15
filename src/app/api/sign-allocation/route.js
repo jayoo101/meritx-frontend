@@ -1,25 +1,27 @@
 import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { CHAIN_ID, RPC_URL } from '@/lib/constants';
+import { CHAIN_ID } from '@/lib/constants';
+
+export const runtime = 'nodejs';
 
 const cooldownMap = new Map();
 const COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
-const CONFIG_PATH = path.join(process.cwd(), 'pohg-config.json');
-const CONFIG_DEFAULTS = { gasPercentage: 1.0, hardCapEth: 0.05 };
+const POHG_DEFAULTS = { gasPercentage: 1.0, hardCapEth: 0.05 };
 
 async function loadPoHGConfig() {
   try {
-    const raw = await fs.readFile(CONFIG_PATH, 'utf-8');
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const configPath = path.join(process.cwd(), 'pohg-config.json');
+    const raw = await fs.readFile(configPath, 'utf-8');
     const parsed = JSON.parse(raw);
     return {
-      gasPercentage: Number(parsed.gasPercentage) || CONFIG_DEFAULTS.gasPercentage,
-      hardCapEth: Number(parsed.hardCapEth) || CONFIG_DEFAULTS.hardCapEth,
+      gasPercentage: Number(parsed.gasPercentage) || POHG_DEFAULTS.gasPercentage,
+      hardCapEth: Number(parsed.hardCapEth) || POHG_DEFAULTS.hardCapEth,
     };
   } catch {
-    return { ...CONFIG_DEFAULTS };
+    return { ...POHG_DEFAULTS };
   }
 }
 
@@ -82,8 +84,8 @@ export async function POST(request) {
 
     const maxAllocation = ethers.utils.parseEther(finalAllocation.toFixed(18));
 
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || RPC_URL;
-    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://sepolia.base.org";
+    const provider = new ethers.providers.StaticJsonRpcProvider(rpcUrl, CHAIN_ID);
     const fundContract = new ethers.Contract(
       fundAddress,
       ['function nonces(address) view returns (uint256)'],
@@ -113,7 +115,7 @@ export async function POST(request) {
   } catch (err) {
     console.error('PoHG sign error:', err);
     return NextResponse.json(
-      { success: false, error: err.message ?? 'Signature generation failed' },
+      { success: false, error: err.message ?? 'Signature generation failed', stack: err.stack },
       { status: 500 }
     );
   }
