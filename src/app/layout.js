@@ -3,7 +3,7 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import NetworkGuard from "@/components/NetworkGuard";
-import CarbonPassportWrapper from "@/components/CarbonPassportWrapper";
+import CarbonMeritWrapper from "@/components/CarbonMeritWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,7 +52,7 @@ export default function RootLayout({ children }) {
       >
         <Navbar />
         <NetworkGuard />
-        <CarbonPassportWrapper />
+        <CarbonMeritWrapper />
         {children}
         <Toaster
           position="bottom-right"
