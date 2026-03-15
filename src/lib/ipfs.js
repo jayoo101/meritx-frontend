@@ -1,31 +1,44 @@
 const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
 
+const GATEWAYS = [
+  PINATA_GATEWAY,
+  'https://cloudflare-ipfs.com',
+  'https://ipfs.io',
+  'https://dweb.link',
+];
+
 /**
- * Convert an ipfs:// URI to an HTTP gateway URL.
- * Returns null for non-IPFS / empty strings.
+ * Convert an ipfs:// URI to an HTTP gateway URL using the specified gateway.
  */
-export function ipfsToHttp(uri) {
+export function ipfsToHttp(uri, gateway = PINATA_GATEWAY) {
   if (!uri || typeof uri !== 'string') return null;
-  if (uri.startsWith('ipfs://')) {
-    return `${PINATA_GATEWAY}/ipfs/${uri.slice(7)}`;
-  }
-  if (uri.startsWith('https://') || uri.startsWith('http://')) return uri;
-  return `${PINATA_GATEWAY}/ipfs/${uri}`;
+  const cid = uri.startsWith('ipfs://') ? uri.slice(7) : uri;
+  if (cid.startsWith('https://') || cid.startsWith('http://')) return cid;
+  return `${gateway}/ipfs/${cid}`;
+}
+
+function fetchWithTimeout(url, ms = 4000) {
+  return fetch(url, { signal: AbortSignal.timeout(ms), cache: 'force-cache' });
 }
 
 /**
- * Fetch and parse a JSON metadata file from an IPFS URI.
- * Returns the parsed object, or null on failure.
+ * Race multiple IPFS gateways via Promise.any — returns the first successful JSON response.
+ * Falls back to null if all gateways fail or timeout.
  */
 export async function fetchIPFSMetadata(ipfsURI) {
-  const url = ipfsToHttp(ipfsURI);
-  if (!url) return null;
+  if (!ipfsURI || typeof ipfsURI !== 'string') return null;
+  const cid = ipfsURI.startsWith('ipfs://') ? ipfsURI.slice(7) : ipfsURI;
+  if (!cid) return null;
+
   try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(5000),
-      cache: 'force-cache',
-    });
-    if (!res.ok) return null;
+    const res = await Promise.any(
+      GATEWAYS.map(gw =>
+        fetchWithTimeout(`${gw}/ipfs/${cid}`).then(r => {
+          if (!r.ok) throw new Error(`${r.status}`);
+          return r;
+        })
+      )
+    );
     return await res.json();
   } catch {
     return null;

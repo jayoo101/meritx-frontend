@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { FileText, Github } from 'lucide-react';
 import { FACTORY_ADDRESS, RPC_URL } from '@/lib/constants';
 import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
-import { ipfsToHttp, fetchIPFSMetadata } from '@/lib/ipfs';
+import { useAgentMetadata } from '@/hooks/useAgentMetadata';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -21,16 +21,6 @@ const MC_ABI = [
 const fundIface = new ethers.utils.Interface(FUND_ABI);
 const tokenIface = new ethers.utils.Interface(TOKEN_ABI);
 const FUND_READS = ['projectToken', 'totalRaised', 'SOFT_CAP', 'currentState', 'raiseEndTime', 'ipfsURI'];
-
-// ── IPFS metadata cache (content-addressed data is immutable) ──
-const _ipfsCache = new Map();
-async function cachedIPFS(uri) {
-  if (!uri) return null;
-  if (_ipfsCache.has(uri)) return _ipfsCache.get(uri);
-  const meta = await fetchIPFSMetadata(uri);
-  if (meta) _ipfsCache.set(uri, meta);
-  return meta;
-}
 
 function decodeSafe(iface, fn, data) {
   try { return iface.decodeFunctionResult(fn, data)[0]; } catch { return null; }
@@ -117,18 +107,8 @@ async function fetchAllProjects() {
     symMap.set(oi,  r2[ci * 2 + 1]?.success ? decodeSafe(tokenIface, 'symbol', r2[ci * 2 + 1].returnData) : '???');
   });
 
-  // Round 3 — IPFS metadata (parallel HTTP, cached in-memory for lifetime of tab)
-  const projects = await Promise.all(fundSlices.map(async (fd, i) => {
+  const projects = fundSlices.map((fd, i) => {
     if (!fd) return null;
-    let avatarUrl = null;
-    let description = '';
-    if (fd.ipfsURI) {
-      const meta = await cachedIPFS(fd.ipfsURI);
-      if (meta) {
-        avatarUrl = meta.image ? ipfsToHttp(meta.image) : null;
-        description = meta.description || '';
-      }
-    }
     const raisedNum = Number(ethers.utils.formatEther(fd.raised));
     const capNum    = Number(ethers.utils.formatEther(fd.softCap));
     return {
@@ -140,10 +120,9 @@ async function fetchAllProjects() {
       softCap: capNum,
       progress: capNum > 0 ? (raisedNum / capNum) * 100 : 0,
       endTime: fd.endTime,
-      avatarUrl,
-      description,
+      ipfsURI: fd.ipfsURI,
     };
-  }));
+  });
 
   return projects.filter(Boolean);
 }
@@ -250,6 +229,100 @@ function AvatarImg({ src, alt, className = 'w-full h-full object-cover' }) {
         />
       )}
     </>
+  );
+}
+
+function ProjectCard({ project: p }) {
+  const isSeed = !!p._seed;
+  // Always call the hook (rules of hooks), but pass null key for seeds to skip fetching
+  const meta = useAgentMetadata(isSeed ? null : p.ipfsURI);
+  const avatarUrl = isSeed ? (p.avatarUrl || null) : meta.avatarUrl;
+  const description = isSeed ? (p.description || '') : meta.description;
+  const isMetaLoading = isSeed ? false : meta.isMetaLoading;
+
+  const badge = statusBadge(p.state);
+  const isFailed = p.state === 1;
+  const displayDesc = description || 'AI Agent tokenized via Initial Agent Offering on Base.';
+
+  return (
+    <Link
+      href={isSeed ? `/agent/${p._seedId}` : `/invest/${encodeURIComponent(p.address)}`}
+      className={`block relative group p-6 rounded-2xl transition-all duration-500 bg-zinc-900/20 backdrop-blur-md border hover:shadow-[0_0_30px_rgba(37,99,235,0.1)] ${
+        p.state === 3
+          ? 'border-emerald-500/30 hover:border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.06)]'
+          : 'border-zinc-800 hover:border-blue-500/50'
+      }`}
+    >
+      <div className="flex justify-between items-start mb-6">
+        <div className="w-12 h-12 rounded-xl bg-black border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner shrink-0 relative">
+          {isMetaLoading ? (
+            <div className="absolute inset-0 bg-zinc-800 animate-pulse rounded-xl" />
+          ) : avatarUrl ? (
+            <AvatarImg src={avatarUrl} alt={p.name} />
+          ) : (
+            <span className="text-2xl font-black text-blue-500">{p.name.charAt(0)}</span>
+          )}
+        </div>
+        <span className={`flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded border uppercase tracking-widest ${badge.color}`}>
+          {p.state === 3 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />}
+          {badge.text}
+        </span>
+      </div>
+
+      <h3 className="text-xl font-bold text-white mb-1 tracking-tight group-hover:text-blue-400 transition-colors">{p.name}</h3>
+      <p className="text-xs text-zinc-500 font-mono mb-4 uppercase tracking-tighter">
+        ${p.symbol} &middot; {p.address.slice(0, 6)}...{p.address.slice(-4)}
+      </p>
+
+      {isMetaLoading ? (
+        <div className="min-h-[40px] mb-6 space-y-2">
+          <div className="h-3 w-full rounded bg-zinc-800/40 animate-pulse" />
+          <div className="h-3 w-3/4 rounded bg-zinc-800/30 animate-pulse" />
+        </div>
+      ) : (
+        <p className="text-sm text-zinc-400 line-clamp-2 min-h-[40px] mb-6 leading-relaxed">
+          {displayDesc}
+        </p>
+      )}
+
+      <div className="space-y-3">
+        <div className="flex justify-between text-xs font-mono">
+          <span className="text-zinc-500 uppercase">IAO Progress</span>
+          <span className="text-white font-bold">{Math.min(p.progress, 100).toFixed(1)}%</span>
+        </div>
+        <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-1000 ${
+              isFailed
+                ? 'bg-red-500/80'
+                : p.state === 3
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.6)]'
+                  : 'bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]'
+            }`}
+            style={{ width: `${Math.min(100, p.progress)}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-[10px] font-mono text-zinc-500">
+          <span>Raised: {p.raised.toFixed(4)} ETH</span>
+          <span>Target: {p.softCap.toFixed(4)} ETH</span>
+        </div>
+      </div>
+
+      <div className="mt-8 flex items-center justify-between">
+        <CardCountdown endTime={p.endTime} state={p.state} />
+        <span className={`text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-lg ${
+          p.state === 0
+            ? 'text-white bg-blue-600 hover:bg-blue-500 shadow-blue-600/20'
+            : p.state === 3
+              ? 'text-white bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
+              : p.state === 2
+                ? 'text-white bg-purple-600 hover:bg-purple-500 shadow-purple-600/20'
+                : 'text-zinc-400 bg-zinc-800 shadow-none'
+        }`}>
+          {p.state === 0 ? 'Sponsor Compute' : p.state === 3 ? 'View Agent' : p.state === 2 ? 'Initializing' : 'Details'}
+        </span>
+      </div>
+    </Link>
   );
 }
 
@@ -526,82 +599,9 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {tabProjects.map((p) => {
-                        const badge = statusBadge(p.state);
-                        const isFailed = p.state === 1;
-                        return (
-                          <Link
-                            href={p._seed ? `/agent/${p._seedId}` : `/invest/${encodeURIComponent(p.address)}`}
-                            key={p.address}
-                            className={`block relative group p-6 rounded-2xl transition-all duration-500 bg-zinc-900/20 backdrop-blur-md border hover:shadow-[0_0_30px_rgba(37,99,235,0.1)] ${
-                              p.state === 3
-                                ? 'border-emerald-500/30 hover:border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.06)]'
-                                : 'border-zinc-800 hover:border-blue-500/50'
-                            }`}
-                          >
-                            <div className="flex justify-between items-start mb-6">
-                              <div className="w-12 h-12 rounded-xl bg-black border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
-                                {p.avatarUrl ? (
-                                  <AvatarImg src={p.avatarUrl} alt={p.name} />
-                                ) : (
-                                  <span className="text-2xl font-black text-blue-500">{p.name.charAt(0)}</span>
-                                )}
-                              </div>
-                              <span className={`flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded border uppercase tracking-widest ${badge.color}`}>
-                                {p.state === 3 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />}
-                                {badge.text}
-                              </span>
-                            </div>
-
-                            <h3 className="text-xl font-bold text-white mb-1 tracking-tight group-hover:text-blue-400 transition-colors">{p.name}</h3>
-                            <p className="text-xs text-zinc-500 font-mono mb-4 uppercase tracking-tighter">
-                              ${p.symbol} &middot; {p.address.slice(0, 6)}...{p.address.slice(-4)}
-                            </p>
-
-                            <p className="text-sm text-zinc-400 line-clamp-2 min-h-[40px] mb-6 leading-relaxed">
-                              {p.description || 'AI Agent tokenized via Initial Agent Offering on Base.'}
-                            </p>
-
-                            <div className="space-y-3">
-                              <div className="flex justify-between text-xs font-mono">
-                                <span className="text-zinc-500 uppercase">IAO Progress</span>
-                                <span className="text-white font-bold">{Math.min(p.progress, 100).toFixed(1)}%</span>
-                              </div>
-                              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-1000 ${
-                                    isFailed
-                                      ? 'bg-red-500/80'
-                                      : p.state === 3
-                                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.6)]'
-                                        : 'bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]'
-                                  }`}
-                                  style={{ width: `${Math.min(100, p.progress)}%` }}
-                                />
-                              </div>
-                              <div className="flex justify-between text-[10px] font-mono text-zinc-500">
-                                <span>Raised: {p.raised.toFixed(4)} ETH</span>
-                                <span>Target: {p.softCap.toFixed(4)} ETH</span>
-                              </div>
-                            </div>
-
-                            <div className="mt-8 flex items-center justify-between">
-                              <CardCountdown endTime={p.endTime} state={p.state} />
-                              <span className={`text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-lg ${
-                                p.state === 0
-                                  ? 'text-white bg-blue-600 hover:bg-blue-500 shadow-blue-600/20'
-                                  : p.state === 3
-                                    ? 'text-white bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
-                                    : p.state === 2
-                                      ? 'text-white bg-purple-600 hover:bg-purple-500 shadow-purple-600/20'
-                                      : 'text-zinc-400 bg-zinc-800 shadow-none'
-                              }`}>
-                                {p.state === 0 ? 'Sponsor Compute' : p.state === 3 ? 'View Agent' : p.state === 2 ? 'Initializing' : 'Details'}
-                              </span>
-                            </div>
-                          </Link>
-                        );
-                      })}
+                      {tabProjects.map((p) => (
+                        <ProjectCard key={p.address} project={p} />
+                      ))}
                     </div>
                   )}
                 </motion.div>
