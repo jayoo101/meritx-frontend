@@ -250,13 +250,21 @@ function ProgressSteps({ currentStep }) {
   );
 }
 
+function genMeritId(address) {
+  if (!address) return '#0000';
+  const hash = address.slice(2, 6).toUpperCase();
+  return `#${hash}`;
+}
+
 function ResultCard({ data, onClaim, claimed }) {
-  const scoreDisplay = useCountUp(data.meritScore, 1800, true);
+  const scoreDisplay = useCountUp(data.meritScore, 1500, true);
 
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://meritx.io';
-  const tweetText = encodeURIComponent(
-    `My Carbon Identity just unlocked ${data.meritScore.toLocaleString()} $MERIT on @MeritX_HQ.\n\nOn-chain history is the new credit.\nScan yours: ${siteUrl}/airdrop\n\n#ProofOfGas #CarbonIdentity`
-  );
+  const ogUrl = `${siteUrl}/api/og?address=${encodeURIComponent(data.address || '')}&meritAmount=${data.meritScore}&rank=${encodeURIComponent(data.tier.label)}`;
+  const shareText = `My Carbon Identity just unlocked ${data.meritScore.toLocaleString()} $MERIT on @MeritX_HQ.\n\nOn-chain history is the new credit.\nScan yours: ${siteUrl}/airdrop\n\n#ProofOfGas #CarbonIdentity`;
+  const tweetText = encodeURIComponent(shareText);
+  const warpcastText = encodeURIComponent(`My Carbon Identity just unlocked ${data.meritScore.toLocaleString()} $MERIT on @MeritX.\n\nOn-chain history is the new credit.\n${siteUrl}/airdrop`);
+  const meritId = genMeritId(data.address);
 
   return (
     <motion.div
@@ -265,8 +273,10 @@ function ResultCard({ data, onClaim, claimed }) {
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       className="w-full max-w-2xl"
     >
-      <div className="relative rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-zinc-900/90 to-black/95 backdrop-blur-xl overflow-hidden shadow-[0_0_60px_rgba(0,200,255,0.08)]">
+      <div className="relative rounded-2xl border border-cyan-400/25 bg-white/[0.04] backdrop-blur-2xl overflow-hidden shadow-[0_0_80px_rgba(0,200,255,0.10),inset_0_1px_0_rgba(255,255,255,0.05)]">
         <ScanlineOverlay />
+        {/* Static CRT scanline texture */}
+        <div className="pointer-events-none absolute inset-0 z-[11] opacity-[0.03]" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,200,0.15) 2px, rgba(0,255,200,0.15) 4px)', backgroundSize: '100% 4px' }} />
         <div className="relative z-20 p-6 sm:p-10">
 
           {/* Header */}
@@ -275,22 +285,25 @@ function ResultCard({ data, onClaim, claimed }) {
               <p className="text-[10px] font-mono text-cyan-500/60 tracking-[0.2em] uppercase mb-1">Carbon Identity Verified</p>
               <h2 className="text-2xl font-black text-white tracking-tight">Merit Allocation</h2>
             </div>
-            <div className={`px-3 py-1.5 rounded-lg ${data.tier.border} ${data.tier.bg}`}>
-              <span className={`text-[11px] font-bold font-mono tracking-wider ${data.tier.accent}`}>{data.tier.label}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-zinc-600 tracking-wider">Merit ID: {meritId}</span>
+              <div className={`px-3 py-1.5 rounded-lg ${data.tier.border} ${data.tier.bg}`}>
+                <span className={`text-[11px] font-bold font-mono tracking-wider ${data.tier.accent}`}>{data.tier.label}</span>
+              </div>
             </div>
           </div>
 
           {/* Chain breakdown */}
-          <div className="rounded-xl border border-zinc-800 bg-black/50 p-4 mb-8" style={{ fontFamily: TERMINAL_FONT }}>
-            <p className="text-[9px] text-zinc-600 uppercase tracking-widest mb-3">EVM Gas Footprint</p>
-            <div className="space-y-1.5 text-xs">
+          <div className="rounded-xl border border-zinc-800/80 bg-white/[0.02] backdrop-blur-sm p-3 sm:p-4 mb-8" style={{ fontFamily: TERMINAL_FONT }}>
+            <p className="text-[9px] text-zinc-600 uppercase tracking-widest mb-2 sm:mb-3">EVM Gas Footprint</p>
+            <div className="space-y-1 sm:space-y-1.5 text-[10px] sm:text-xs">
               {data.chains.map(c => (
                 <div key={c.id} className="flex justify-between">
-                  <span className="text-zinc-500">{c.label}</span>
-                  <span className="text-zinc-400 tabular-nums">{c.gas.toFixed(4)} ETH</span>
+                  <span className="text-zinc-500 truncate mr-2">{c.label}</span>
+                  <span className="text-zinc-400 tabular-nums shrink-0">{c.gas.toFixed(4)} ETH</span>
                 </div>
               ))}
-              <div className="h-px bg-zinc-800 my-2" />
+              <div className="h-px bg-zinc-800 my-1.5 sm:my-2" />
               <div className="flex justify-between">
                 <span className="text-white font-bold">TOTAL</span>
                 <span className="text-white font-bold tabular-nums">{data.totalGas.toFixed(4)} ETH</span>
@@ -301,14 +314,15 @@ function ResultCard({ data, onClaim, claimed }) {
           {/* Pillar stats */}
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
             {[
-              { icon: '⛽', label: 'Gas Burned', value: `${data.totalGas.toFixed(2)} ETH`, accent: 'text-orange-400', border: 'border-orange-500/20', bg: 'bg-orange-500/[0.05]' },
-              { icon: '🔗', label: 'Transactions', value: data.txCount.toLocaleString(), accent: 'text-purple-400', border: 'border-purple-500/20', bg: 'bg-purple-500/[0.05]' },
-              { icon: '🛡️', label: 'Carbon Tier', value: data.tier.label.split(' ')[1], accent: 'text-cyan-400', border: 'border-cyan-500/20', bg: 'bg-cyan-500/[0.05]' },
+              { icon: '⛽', label: 'Gas Burned', value: `${data.totalGas.toFixed(2)} ETH`, sub: 'Top 12% of Power Users', accent: 'text-orange-400', border: 'border-orange-500/20' },
+              { icon: '🔗', label: 'Transactions', value: data.txCount.toLocaleString(), sub: null, accent: 'text-purple-400', border: 'border-purple-500/20' },
+              { icon: '🛡️', label: 'Carbon Tier', value: data.tier.label.split(' ')[1], sub: null, accent: 'text-cyan-400', border: 'border-cyan-500/20' },
             ].map(p => (
-              <div key={p.label} className={`rounded-xl border ${p.border} ${p.bg} p-3 sm:p-4 text-center`}>
+              <div key={p.label} className={`rounded-xl border ${p.border} bg-white/[0.03] backdrop-blur-sm p-3 sm:p-4 text-center`}>
                 <span className="text-xl sm:text-2xl block mb-1">{p.icon}</span>
                 <p className={`text-sm sm:text-base font-black ${p.accent} font-mono`}>{p.value}</p>
                 <p className="text-[9px] text-zinc-500 uppercase tracking-wider mt-1">{p.label}</p>
+                {p.sub && <p className="text-[8px] text-zinc-600 mt-1 hidden sm:block">{p.sub}</p>}
               </div>
             ))}
           </div>
@@ -316,13 +330,22 @@ function ResultCard({ data, onClaim, claimed }) {
           {/* Score */}
           <div className="text-center mb-8">
             <p className="text-[10px] font-mono text-zinc-600 tracking-[0.3em] uppercase mb-3">Total Merit Allocation</p>
-            <h3
-              className="text-5xl sm:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-300"
-              style={{ fontFamily: TERMINAL_FONT, filter: 'drop-shadow(0 0 30px rgba(0, 200, 255, 0.4))' }}
-            >
-              {scoreDisplay.toLocaleString()}
-            </h3>
-            <p className="text-sm font-bold text-cyan-500/60 tracking-widest mt-1">$MERIT</p>
+            <div className="relative inline-block py-2">
+              <h3
+                className="text-5xl sm:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-300 relative z-10"
+                style={{
+                  fontFamily: TERMINAL_FONT,
+                  filter: 'drop-shadow(0 0 12px rgba(0,210,255,0.6)) drop-shadow(0 0 40px rgba(0,180,255,0.35))',
+                }}
+              >
+                {scoreDisplay.toLocaleString()}
+              </h3>
+              {/* Outer diffuse glow */}
+              <div className="absolute -inset-4 blur-3xl opacity-30 bg-gradient-to-r from-cyan-400 via-blue-500 to-cyan-300 -z-0 holo-pulse" aria-hidden="true" />
+              {/* Inner tight glow */}
+              <div className="absolute inset-0 blur-xl opacity-50 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-300 -z-0" aria-hidden="true" />
+            </div>
+            <p className="text-sm font-bold text-cyan-400/70 tracking-widest mt-1" style={{ textShadow: '0 0 20px rgba(0,210,255,0.3)' }}>$MERIT</p>
           </div>
 
           {/* CTA */}
@@ -330,33 +353,36 @@ function ResultCard({ data, onClaim, claimed }) {
             {!claimed ? (
               <button
                 onClick={onClaim}
-                className="w-full py-4 rounded-xl font-bold text-base text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all shadow-[0_0_30px_rgba(0,200,255,0.2)] hover:shadow-[0_0_50px_rgba(0,200,255,0.35)]"
+                className="relative w-full py-4 rounded-xl font-bold text-base text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all shadow-[0_0_30px_rgba(0,200,255,0.2)] hover:shadow-[0_0_50px_rgba(0,200,255,0.35)] overflow-hidden"
               >
-                Claim {data.meritScore.toLocaleString()} $MERIT
+                <span className="absolute inset-0 shimmer-streak" />
+                <span className="relative z-10">Claim {data.meritScore.toLocaleString()} $MERIT</span>
               </button>
             ) : (
               <div className="w-full py-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-center">
                 <span className="text-emerald-400 font-bold text-sm font-mono tracking-wider">CLAIMED — ALLOCATION SECURED</span>
               </div>
             )}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <a
-                href={`https://twitter.com/intent/tweet?text=${tweetText}`}
+                href={`https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(ogUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-all shadow-lg"
+                onClick={() => { try { navigator.clipboard.writeText(decodeURIComponent(tweetText)); } catch {} }}
+                className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-black border border-zinc-700 text-white font-bold text-sm hover:bg-zinc-900 hover:border-zinc-600 transition-all"
               >
                 <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
                 Share on X
               </a>
               <a
-                href={`https://warpcast.com/~/compose?text=${encodeURIComponent(`My Carbon Identity just unlocked ${data.meritScore.toLocaleString()} $MERIT on @MeritX.\n\nOn-chain history is the new credit.\n${siteUrl}/airdrop`)}`}
+                href={`https://warpcast.com/~/compose?text=${warpcastText}&embeds[]=${encodeURIComponent(ogUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-sm hover:brightness-110 transition-all shadow-lg"
-                style={{ background: '#8A2BE2' }}
+                className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-sm hover:brightness-110 transition-all"
+                style={{ background: '#7C3AED' }}
               >
-                Share on Warpcast
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M3.414 1.98h17.172c.792 0 1.434.642 1.434 1.434v17.172c0 .792-.642 1.434-1.434 1.434H3.414c-.792 0-1.434-.642-1.434-1.434V3.414c0-.792.642-1.434 1.434-1.434zM6.856 7.326l2.34 4.236-2.484 4.112h1.772l1.584-2.756 1.584 2.756h1.8l-2.484-4.112 2.34-4.236h-1.772l-1.468 2.604-1.468-2.604h-1.744z" /></svg>
+                Warpcast
               </a>
             </div>
           </div>
@@ -674,6 +700,28 @@ export default function CarbonMeritModal() {
         @keyframes meritScanDown {
           0%   { top: -2px; }
           100% { top: 100%; }
+        }
+        @keyframes shimmer {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        @keyframes holoPulse {
+          0%, 100% { opacity: 0.25; transform: scale(1); }
+          50%      { opacity: 0.45; transform: scale(1.05); }
+        }
+        .shimmer-streak {
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255,255,255,0.08) 40%,
+            rgba(255,255,255,0.15) 50%,
+            rgba(255,255,255,0.08) 60%,
+            transparent 100%
+          );
+          animation: shimmer 2.5s ease-in-out infinite;
+        }
+        .holo-pulse {
+          animation: holoPulse 3s ease-in-out infinite;
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
