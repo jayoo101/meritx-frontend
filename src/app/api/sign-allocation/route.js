@@ -84,8 +84,11 @@ export async function POST(request) {
 
     const maxAllocation = ethers.utils.parseEther(finalAllocation.toFixed(18));
 
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://sepolia.base.org";
-    const provider = new ethers.providers.StaticJsonRpcProvider(rpcUrl, CHAIN_ID);
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://base-sepolia-rpc.publicnode.com";
+    const provider = new ethers.providers.StaticJsonRpcProvider(
+      { url: rpcUrl, skipFetchSetup: true },
+      84532
+    );
     const fundContract = new ethers.Contract(
       fundAddress,
       ['function nonces(address) view returns (uint256)'],

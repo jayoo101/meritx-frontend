@@ -5,7 +5,7 @@
 export const CHAIN_ID     = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 84532;
 export const CHAIN_ID_HEX = '0x' + CHAIN_ID.toString(16);
 export const CHAIN_NAME   = process.env.NEXT_PUBLIC_CHAIN_NAME   || 'Base Sepolia';
-export const RPC_URL      = process.env.NEXT_PUBLIC_RPC_URL      || 'https://sepolia.base.org';
+export const RPC_URL      = process.env.NEXT_PUBLIC_RPC_URL      || 'https://base-sepolia-rpc.publicnode.com';
 export const EXPLORER_URL = process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://sepolia.basescan.org';
 
 // Contract addresses — env override supported with hardcoded testnet fallbacks
