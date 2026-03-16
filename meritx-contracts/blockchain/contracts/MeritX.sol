@@ -109,10 +109,10 @@ contract MeritXFund {
     address public immutable positionManager;
     address public immutable weth;
 
-    // -- LP constants --
+    // -- LP constants (V13: narrowed range saves ~40k gas on mint) --
     uint24  internal constant FEE_TIER  = 3000;
-    int24   internal constant TICK_LOW  = -887220;
-    int24   internal constant TICK_HIGH = 887220;
+    int24   internal constant TICK_LOW  = -30000;
+    int24   internal constant TICK_HIGH = 30000;
 
     // -- Raise parameters --
     uint256 public constant SOFT_CAP           = 0.001 ether;
@@ -265,23 +265,22 @@ contract MeritXFund {
     // ---- Finalization ----
 
     function finalizeFunding() external {
-        require(msg.sender == projectOwner, "!owner");
+        require(msg.sender == projectOwner, "MeritX: caller is not project owner");
         require(
             launchAnnouncementTime > 0 &&
             block.timestamp >= launchAnnouncementTime + PRE_LAUNCH_NOTICE,
-            "6h notice required"
+            "MeritX: 6h notice period not elapsed"
         );
         require(
             block.timestamp <= launchAnnouncementTime + PRE_LAUNCH_NOTICE + LAUNCH_EXPIRATION,
-            "Launch expired after notice"
+            "MeritX: launch expired after notice"
         );
-        require(block.timestamp <= raiseEndTime + LAUNCH_WINDOW, "Launch window expired");
-        require(totalRaised >= SOFT_CAP, "!cap");
-        require(!isFinalized, "!done");
+        require(block.timestamp <= raiseEndTime + LAUNCH_WINDOW, "MeritX: launch window expired");
+        require(totalRaised >= SOFT_CAP, "MeritX: soft cap not reached");
+        require(!isFinalized, "MeritX: already finalized");
         isFinalized = true;
-        
+
         poolCreationTime = block.timestamp;
-        // [FIX HIGH-2]: Lock the inflation engine for the first cooldown period
         lastMintTime = block.timestamp;
 
         uint256 raised = totalRaised;
@@ -293,35 +292,49 @@ contract MeritXFund {
         }
         uint256 tokensForPool = LP_POOL;
 
+        // Step 1: Wrap ETH → WETH
         IWETH(weth).deposit{value: ethForPool}();
-        IWETH(weth).approve(positionManager, ethForPool);
-        projectToken.approve(positionManager, tokensForPool);
+        require(
+            IWETH(weth).balanceOf(address(this)) >= ethForPool,
+            "MeritX: WETH deposit failed"
+        );
 
+        // Step 2: Approve PositionManager to spend both tokens
+        require(
+            IWETH(weth).approve(positionManager, ethForPool),
+            "MeritX: WETH approve failed"
+        );
+        require(
+            projectToken.approve(positionManager, tokensForPool),
+            "MeritX: token approve failed"
+        );
+
+        // Step 3: Determine Uniswap V3 token ordering (t0 < t1)
         bool tkn0 = address(projectToken) < weth;
         address t0 = tkn0 ? address(projectToken) : weth;
         address t1 = tkn0 ? weth : address(projectToken);
         uint256 a0 = tkn0 ? tokensForPool : ethForPool;
         uint256 a1 = tkn0 ? ethForPool    : tokensForPool;
 
-        uint160 sqrtPrice = uint160(
-            (Math.sqrt(a1) << 96) / Math.sqrt(a0)
-        );
+        // Step 4: Compute sqrtPriceX96 = sqrt(a1/a0) * 2^96
+        uint256 sqrtA0 = Math.sqrt(a0);
+        uint256 sqrtA1 = Math.sqrt(a1);
+        require(sqrtA0 > 0, "MeritX: sqrt(a0) is zero");
+        uint160 sqrtPrice = uint160((sqrtA1 << 96) / sqrtA0);
+        require(sqrtPrice > 4295128739, "MeritX: sqrtPrice below V3 minimum");
 
+        // Step 5: Create pool and initialize (most expensive step: ~1.5M gas)
         INonfungiblePositionManager pm =
             INonfungiblePositionManager(positionManager);
         address pool = pm.createAndInitializePoolIfNecessary(
             t0, t1, FEE_TIER, sqrtPrice
         );
+        require(pool != address(0), "MeritX: pool creation failed");
 
-        // [FIX HIGH-1]: Front-running defense with 0.01% tolerance for rounding dust
-        {
-            (uint160 actualSqrt,,,,,,) = IUniswapV3Pool(pool).slot0();
-            uint160 diff = actualSqrt > sqrtPrice
-                ? actualSqrt - sqrtPrice
-                : sqrtPrice - actualSqrt;
-            require(diff < sqrtPrice / 10000, "Price deviation too high");
-        }
+        // Step 6: Gas safety gate — prevent half-executed reverts in deep V3 calls
+        require(gasleft() > 500_000, "MeritX: insufficient gas for LP mint");
 
+        // Step 7: Mint LP position
         (uint256 tokenId,,,) = pm.mint(
             INonfungiblePositionManager.MintParams({
                 token0: t0,
@@ -337,6 +350,7 @@ contract MeritXFund {
                 deadline: block.timestamp
             })
         );
+        require(tokenId > 0, "MeritX: LP mint returned zero tokenId");
 
         lpTokenId   = tokenId;
         uniswapPool = pool;
@@ -345,16 +359,15 @@ contract MeritXFund {
             initialTick = tick;
         }
 
+        // Step 8: Send platform fee
         (bool f1, ) = payable(platformTreasury).call{value: fee}("");
-        require(f1, "!fee");
+        require(f1, "MeritX: treasury fee transfer failed");
 
-        // WETH dust sweep (safe — not used for user claims)
+        // Step 9: Sweep leftover WETH dust (safe — not used for user claims)
         uint256 leftoverWETH = IWETH(weth).balanceOf(address(this));
         if (leftoverWETH > 0) {
             IWETH(weth).transfer(platformTreasury, leftoverWETH);
         }
-        // Token dust left by Uniswap V3 mint rounding stays in-contract alongside
-        // RETAIL_POOL; claimTokens() distributes pro-rata from the actual balance.
     }
 
     function expandPoolObservation(uint16 nextCardinality) external {

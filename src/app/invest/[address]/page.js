@@ -216,7 +216,13 @@ export default function InvestPage() {
     setIsLaunching(true);
     try {
       const { contract } = getSignerContract(address, FUND_ABI);
-      const tx = await contract.finalizeFunding({ gasLimit: 2_000_000 });
+      let gasLimit = 3_500_000;
+      try {
+        const estimated = await contract.estimateGas.finalizeFunding();
+        gasLimit = estimated.mul(130).div(100).toNumber();
+        if (gasLimit < 3_500_000) gasLimit = 3_500_000;
+      } catch { /* estimation failed — use safe default */ }
+      const tx = await contract.finalizeFunding({ gasLimit });
       toast('Deploying agent: creating Uniswap V3 pool + locking LP...', { icon: '\u23F3' });
       await tx.wait();
       toast.success('Agent deployed! Pool created, LP locked permanently.');
@@ -227,7 +233,7 @@ export default function InvestPage() {
       if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {
         toast.error('Transaction cancelled by user.');
       } else if (isGas) {
-        toast.error('Transaction failed — increase Gas Limit and retry.');
+        toast.error('Transaction failed — gas limit too low. Try again.');
       } else {
         handleTxError(err);
       }

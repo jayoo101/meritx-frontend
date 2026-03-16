@@ -10,11 +10,10 @@ module.exports = {
   },
   networks: {
     hardhat: {
-      forking: {
-        url: process.env.BASE_SEPOLIA_RPC || "https://base-sepolia-rpc.publicnode.com",
-        // Uncomment and pin a block for faster, cached re-runs:
-        // blockNumber: 22000000,
-      },
+      // Uncomment forking block for live Uniswap V3 simulation (requires archive RPC):
+      // forking: {
+      //   url: process.env.BASE_SEPOLIA_RPC || "https://base-sepolia-rpc.publicnode.com",
+      // },
     },
     baseSepolia: {
       url: process.env.BASE_SEPOLIA_RPC || "https://base-sepolia-rpc.publicnode.com",
