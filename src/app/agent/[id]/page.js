@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -137,6 +137,9 @@ export default function AgentDetailPage() {
   const [sponsorAmount, setSponsorAmount] = useState('');
   const [fundingState, setFundingState] = useState('idle');
   const logIdRef = useRef(100_000);
+  // [AUDIT FIX] M3: Track pending timeouts for cleanup on unmount
+  const pendingTimers = useRef([]);
+  useEffect(() => () => { pendingTimers.current.forEach(clearTimeout); }, []);
 
   useEffect(() => {
     if (!agent) return;
@@ -175,7 +178,7 @@ export default function AgentDetailPage() {
     if (!agent) return;
     navigator.clipboard.writeText(agent.masEndpoint);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    pendingTimers.current.push(setTimeout(() => setCopied(false), 2000)); // [AUDIT FIX] M3
   };
 
   const handleFund = () => {
@@ -185,7 +188,8 @@ export default function AgentDetailPage() {
 
     setFundingState('pending');
 
-    setTimeout(() => {
+    // [AUDIT FIX] M3: Track timers for cleanup on unmount
+    pendingTimers.current.push(setTimeout(() => {
       setFundingState('confirmed');
       toast.success(`Transaction Confirmed: ${display} ETH contributed to ${agent.name} on Base Sepolia.`, { duration: 5000 });
 
@@ -208,11 +212,11 @@ export default function AgentDetailPage() {
         timestamp: ts,
       }, ...prev].slice(0, 20));
 
-      setTimeout(() => {
+      pendingTimers.current.push(setTimeout(() => {
         setFundingState('idle');
         setSponsorAmount('');
-      }, 2000);
-    }, 1500);
+      }, 2000));
+    }, 1500));
   };
 
   if (!agent) {

@@ -17,7 +17,9 @@ function fmtMerit(n) {
   return Math.round(Number(n) || 0).toLocaleString('en-US');
 }
 
+// [AUDIT FIX] M7: Wrap entire handler in try/catch for structured error response
 export async function GET(request) {
+  try {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get('address') || '0x0000...0000';
   const meritAmount = searchParams.get('meritAmount') || '0';
@@ -179,4 +181,9 @@ export async function GET(request) {
     ),
     { width: 1200, height: 630 }
   );
+  } catch (err) {
+    // [AUDIT FIX] M7: Return a text error instead of crashing
+    console.error('OG image generation failed:', err);
+    return new Response('OG image generation failed', { status: 500 });
+  }
 }

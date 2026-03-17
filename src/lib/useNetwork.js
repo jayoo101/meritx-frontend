@@ -37,7 +37,12 @@ export function useNetwork() {
               blockExplorerUrls: [EXPLORER_URL],
             }],
           });
-        } catch {}
+        } catch (innerErr) {
+          // [AUDIT FIX] M6: Surface error unless user cancelled adding network
+          if (innerErr?.code !== 4001 && innerErr?.code !== 'ACTION_REJECTED') {
+            console.warn('Failed to add chain:', innerErr);
+          }
+        }
       }
     }
   }, []);

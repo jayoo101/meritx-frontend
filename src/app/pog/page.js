@@ -593,14 +593,20 @@ export default function ProofOfGasPage() {
   // Campaign end time (read from contract if deployed)
   useEffect(() => {
     if (!POG_NFT_ADDRESS || typeof window === 'undefined' || !window.ethereum) return;
+    // [AUDIT FIX] M2: Cancellation flag to prevent setState on unmounted component
+    let cancelled = false;
     (async () => {
       try {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const contract = new ethers.Contract(POG_NFT_ADDRESS, POG_ABI, provider);
         const end = await contract.endTime();
-        if (end.gt(0)) setCampaignEnd(end.toNumber());
-      } catch {}
+        if (!cancelled && end.gt(0)) setCampaignEnd(end.toNumber());
+      } catch (err) {
+        // [AUDIT FIX] M5: Log contract read failures
+        if (!cancelled) console.warn('PoG endTime read failed:', err);
+      }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   // On-mount: check if this wallet has already minted

@@ -45,7 +45,10 @@ export default function PortfolioPage() {
         setAccount(accounts[0]);
         localStorage.setItem('isWalletConnected', 'true');
       }
-    } catch { toast.error('Wallet connection failed'); }
+    } catch (err) {
+      // [AUDIT FIX] M1: Suppress toast on user rejection
+      if (err?.code !== 4001 && err?.code !== 'ACTION_REJECTED') toast.error('Wallet connection failed');
+    }
   };
 
   const loadPortfolio = useCallback(async () => {

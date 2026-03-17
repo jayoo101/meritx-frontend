@@ -116,9 +116,10 @@ export async function POST(request) {
       },
     });
   } catch (err) {
-    console.error('PoHG sign error:', err);
+    // [AUDIT FIX] C3: Log stack server-side only — never expose to client
+    console.error('PoHG sign error:', err?.stack ?? err);
     return NextResponse.json(
-      { success: false, error: err.message ?? 'Signature generation failed', stack: err.stack },
+      { success: false, error: err.message ?? 'Signature generation failed' },
       { status: 500 }
     );
   }

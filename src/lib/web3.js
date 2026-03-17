@@ -1,3 +1,6 @@
+// [AUDIT FIX] H3: Mark as client module — accesses window.ethereum
+'use client';
+
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
 

@@ -164,15 +164,24 @@ export default function AdminDashboard() {
       .catch(() => {});
   }, [isAuthorized]);
 
+  // [AUDIT FIX] H4: Sign config update with ECDSA to prevent header spoofing
   const savePoHGConfig = useCallback(async () => {
-    if (!isAuthorized) return;
+    if (!isAuthorized || typeof window === 'undefined' || !window.ethereum) return;
     setPohgSaving(true);
     try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const timestamp = String(Date.now());
+      const message = `MeritX Admin Config Update\nTimestamp: ${timestamp}`;
+      const signature = await signer.signMessage(message);
+
       const res = await fetch('/api/admin/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-admin-wallet': account,
+          'x-admin-signature': signature,
+          'x-admin-timestamp': timestamp,
         },
         body: JSON.stringify({ gasPercentage: pohgGas, hardCapEth: pohgCap }),
       });
@@ -182,7 +191,8 @@ export default function AdminDashboard() {
       } else {
         toast.error(json.error || 'Failed to save config');
       }
-    } catch {
+    } catch (err) {
+      if (err?.code === 4001 || err?.code === 'ACTION_REJECTED') return; // [AUDIT FIX] M1
       toast.error('Network error');
     } finally {
       setPohgSaving(false);
@@ -194,7 +204,10 @@ export default function AdminDashboard() {
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       if (accounts[0]) setAccount(accounts[0].toLowerCase());
-    } catch { toast.error('Connection failed'); }
+    } catch (err) {
+      // [AUDIT FIX] M1: Suppress toast on user rejection
+      if (err?.code !== 4001 && err?.code !== 'ACTION_REJECTED') toast.error('Connection failed');
+    }
   }, []);
 
   const disconnectWallet = () => setAccount('');

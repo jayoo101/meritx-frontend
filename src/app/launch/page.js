@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
 import { Rocket, FileText, Share2, Shield, ImagePlus, X } from 'lucide-react';
@@ -10,7 +10,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { FACTORY_ABI } from '@/lib/abis';
 import { getSignerContract } from '@/lib/web3';
 
-const PINATA_JWT = process.env.NEXT_PUBLIC_PINATA_JWT;
+// [AUDIT FIX] C2: Removed NEXT_PUBLIC_PINATA_JWT — uploads now go through /api/upload
 const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
 
 const PROTOCOL_RULES = [
@@ -37,6 +37,9 @@ export default function LaunchPage() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const fileInputRef = useRef(null);
+  // [AUDIT FIX] M3: Track pending timeouts for cleanup on unmount
+  const pendingTimers = useRef([]);
+  useEffect(() => () => { pendingTimers.current.forEach(clearTimeout); }, []);
   const [acknowledged, setAcknowledged] = useState(false);
   // Granular tx lifecycle: idle → uploading_avatar → uploading_meta → confirming_wallet → mining → success
   const [txStatus, setTxStatus] = useState('idle');
@@ -74,8 +77,9 @@ export default function LaunchPage() {
     }
     try {
       await connectWallet();
-    } catch {
-      toast.error('Wallet connection failed');
+    } catch (err) {
+      // [AUDIT FIX] M1: Suppress toast on user rejection
+      if (err?.code !== 4001 && err?.code !== 'ACTION_REJECTED') toast.error('Wallet connection failed');
     }
   }, [connectWallet]);
 
@@ -100,32 +104,25 @@ export default function LaunchPage() {
     });
   }, []);
 
+  // [AUDIT FIX] C2: Upload via server-side API route instead of exposing Pinata JWT
   const uploadFileToPinata = useCallback(async (file) => {
     const compressed = await compressImage(file);
     const form = new FormData();
     form.append('file', compressed);
-    form.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
-    const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${PINATA_JWT}` },
-      body: form,
-    });
-    if (!res.ok) throw new Error(`Pinata file upload failed (${res.status})`);
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
     const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'File upload failed');
     return data.IpfsHash;
   }, [compressImage]);
 
   const uploadJSONToPinata = useCallback(async (json) => {
-    const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+    const res = await fetch('/api/upload', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${PINATA_JWT}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ pinataContent: json, pinataOptions: { cidVersion: 1 } }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: json }),
     });
-    if (!res.ok) throw new Error(`Pinata JSON upload failed (${res.status})`);
     const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'JSON upload failed');
     return data.IpfsHash;
   }, []);
 
@@ -136,7 +133,7 @@ export default function LaunchPage() {
     if (!acknowledged) return toast.error('Acknowledge the terms before launching');
     if (typeof window === 'undefined' || !window.ethereum) return toast.error('Wallet not connected.');
     if (!isCorrectChain) return toast.error('Wrong network — switch to Base Sepolia first.');
-    if (!PINATA_JWT) return toast.error('IPFS service is not configured. Please contact the team.');
+    // [AUDIT FIX] C2: No client-side JWT check needed — server route handles it
 
     try {
       let imageCID = '';
@@ -190,7 +187,7 @@ export default function LaunchPage() {
       setSkillEndpoint('');
       clearAvatar();
       setAcknowledged(false);
-      setTimeout(() => setTxStatus('idle'), 4000);
+      pendingTimers.current.push(setTimeout(() => setTxStatus('idle'), 4000)); // [AUDIT FIX] M3
     } catch (err) {
       setTxStatus('idle');
       if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) {

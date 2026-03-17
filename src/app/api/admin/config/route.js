@@ -1,6 +1,10 @@
+// [AUDIT FIX] H5: Declare Node.js runtime for fs/path usage
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { ethers } from 'ethers';
 
 const CONFIG_PATH = path.join(process.cwd(), 'pohg-config.json');
 
@@ -47,10 +51,39 @@ export async function POST(request) {
     );
   }
 
-  const authHeader = request.headers.get('x-admin-wallet')?.toLowerCase();
-  if (authHeader !== adminWallet) {
+  // [AUDIT FIX] H4: ECDSA signature verification instead of spoofable header
+  const walletHeader = request.headers.get('x-admin-wallet')?.toLowerCase();
+  const signatureHeader = request.headers.get('x-admin-signature');
+  const timestampHeader = request.headers.get('x-admin-timestamp');
+
+  if (!walletHeader || !signatureHeader || !timestampHeader) {
     return NextResponse.json(
-      { success: false, error: 'Unauthorized — wallet mismatch' },
+      { success: false, error: 'Missing authentication headers (wallet, signature, timestamp)' },
+      { status: 401 }
+    );
+  }
+
+  const tsAge = Math.abs(Date.now() - Number(timestampHeader));
+  if (isNaN(tsAge) || tsAge > 5 * 60 * 1000) {
+    return NextResponse.json(
+      { success: false, error: 'Signature expired — timestamp must be within 5 minutes' },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const message = `MeritX Admin Config Update\nTimestamp: ${timestampHeader}`;
+    const recoveredAddress = ethers.utils.verifyMessage(message, signatureHeader).toLowerCase();
+
+    if (recoveredAddress !== adminWallet) {
+      return NextResponse.json(
+        { success: false, error: `Unauthorized — recovered ${recoveredAddress.slice(0,10)}... does not match admin` },
+        { status: 403 }
+      );
+    }
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid signature' },
       { status: 403 }
     );
   }

@@ -19,15 +19,20 @@ function resolveTier(baseScoreInt) {
 // ── Multi-chain gas fetcher ──
 // Uses Alchemy-compatible JSON-RPC (eth_getBalance + eth_getTransactionCount).
 // Team should replace with real Alchemy/Covalent API keys per chain for production.
+// [AUDIT FIX] M8: Validate RPC keys — fail clearly if placeholders are still in use
 const CHAIN_RPCS = {
-  ethereum: process.env.POG_RPC_ETHEREUM   || 'https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY',
-  base:     process.env.POG_RPC_BASE       || 'https://base-mainnet.g.alchemy.com/v2/YOUR_KEY',
-  arbitrum: process.env.POG_RPC_ARBITRUM   || 'https://arb-mainnet.g.alchemy.com/v2/YOUR_KEY',
-  optimism: process.env.POG_RPC_OPTIMISM   || 'https://opt-mainnet.g.alchemy.com/v2/YOUR_KEY',
-  polygon:  process.env.POG_RPC_POLYGON    || 'https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY',
+  ethereum: process.env.POG_RPC_ETHEREUM   || '',
+  base:     process.env.POG_RPC_BASE       || '',
+  arbitrum: process.env.POG_RPC_ARBITRUM   || '',
+  optimism: process.env.POG_RPC_OPTIMISM   || '',
+  polygon:  process.env.POG_RPC_POLYGON    || '',
 };
 
 async function fetchGasForChain(rpcUrl, address) {
+  // [AUDIT FIX] M8: Skip chains with missing/placeholder RPC keys
+  if (!rpcUrl || rpcUrl.includes('YOUR_KEY')) {
+    return { txCount: 0, gas: 0 };
+  }
   try {
     const body = JSON.stringify({
       jsonrpc: '2.0', id: 1,
@@ -72,6 +77,15 @@ async function fetchGasDataFromMultichains(userAddress) {
 }
 
 export async function POST(request) {
+  // [AUDIT FIX] M8: Validate at least one real RPC is configured
+  const hasValidRpc = Object.values(CHAIN_RPCS).some(url => url && !url.includes('YOUR_KEY'));
+  if (!hasValidRpc) {
+    return NextResponse.json(
+      { success: false, error: 'Multi-chain RPC endpoints not configured. Service temporarily unavailable.' },
+      { status: 503 }
+    );
+  }
+
   const pogPrivateKey = process.env.BACKEND_PRIVATE_KEY_FOR_POG;
   if (!pogPrivateKey) {
     return NextResponse.json(
@@ -94,7 +108,17 @@ export async function POST(request) {
 
   const checksumUser = ethers.utils.getAddress(userAddress);
 
-  const gasData = await fetchGasDataFromMultichains(checksumUser);
+  // [AUDIT FIX] H6: Wrap gas fetch + signing in try/catch for structured error responses
+  let gasData;
+  try {
+    gasData = await fetchGasDataFromMultichains(checksumUser);
+  } catch (err) {
+    console.error('Multi-chain gas fetch failed:', err);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch on-chain gas data. Please try again.' },
+      { status: 502 }
+    );
+  }
 
   if (gasData.totalGas < 0.001) {
     return NextResponse.json(
@@ -126,12 +150,22 @@ export async function POST(request) {
 
   const chainId = parseInt(process.env.NEXT_PUBLIC_POG_CHAIN_ID || '84532', 10);
 
+  // [AUDIT FIX] H6: Wrap signature generation in try/catch
+  let signature;
   const wallet = new ethers.Wallet(pogPrivateKey);
-  const msgHash = ethers.utils.solidityKeccak256(
-    ['uint256', 'address', 'address', 'uint256', 'address'],
-    [chainId, ethers.utils.getAddress(pogContractAddress), checksumUser, baseScoreInt, inviter]
-  );
-  const signature = await wallet.signMessage(ethers.utils.arrayify(msgHash));
+  try {
+    const msgHash = ethers.utils.solidityKeccak256(
+      ['uint256', 'address', 'address', 'uint256', 'address'],
+      [chainId, ethers.utils.getAddress(pogContractAddress), checksumUser, baseScoreInt, inviter]
+    );
+    signature = await wallet.signMessage(ethers.utils.arrayify(msgHash));
+  } catch (err) {
+    console.error('PoG signature generation failed:', err);
+    return NextResponse.json(
+      { success: false, error: 'Signature generation failed' },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
     success: true,

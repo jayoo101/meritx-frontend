@@ -81,11 +81,16 @@ function useWalletLocal() {
     window.ethereum.on('accountsChanged', h);
     return () => window.ethereum.removeListener('accountsChanged', h);
   }, []);
+  // [AUDIT FIX] H2: try/catch inside connect to gracefully handle user rejection (4001)
   const connect = useCallback(async () => {
     if (typeof window === 'undefined' || !window.ethereum) return;
-    await window.ethereum.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
-    const a = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    if (a?.[0]) { setAccount(a[0]); localStorage.setItem('isWalletConnected', 'true'); }
+    try {
+      await window.ethereum.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
+      const a = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (a?.[0]) { setAccount(a[0]); localStorage.setItem('isWalletConnected', 'true'); }
+    } catch (err) {
+      if (err?.code !== 4001 && err?.code !== 'ACTION_REJECTED') throw err;
+    }
   }, []);
   return { account, connect };
 }
@@ -147,14 +152,19 @@ export default function ProofOfGasCampaign() {
   const [inviter, setInviter] = useState(ethers.constants.AddressZero);
   const logEndRef = useRef(null);
 
-  // ── Auto-open once per session ──
+  // ── Mount + auto-open once per session ──
   useEffect(() => {
     setMounted(true);
-    const shown = sessionStorage.getItem(SESSION_KEY);
-    if (!shown) {
-      const t = setTimeout(() => { setIsOpen(true); sessionStorage.setItem(SESSION_KEY, '1'); }, 1500);
-      return () => clearTimeout(t);
-    }
+    try {
+      const shown = sessionStorage.getItem(SESSION_KEY);
+      if (!shown) {
+        const t = setTimeout(() => {
+          setIsOpen(true);
+          try { sessionStorage.setItem(SESSION_KEY, '1'); } catch {}
+        }, 1500);
+        return () => clearTimeout(t);
+      }
+    } catch {}
   }, []);
 
   // Lock body scroll when open
@@ -171,30 +181,37 @@ export default function ProofOfGasCampaign() {
     return () => { delete window.__openMeritDrop; };
   }, [mounted, openModal]);
 
-  // Read inviter from URL
+  // Read inviter from URL (deferred until mounted)
   useEffect(() => {
+    if (!mounted) return;
     try {
       const ref = new URLSearchParams(window.location.search).get('ref');
       if (ref && ethers.utils.isAddress(ref)) setInviter(ethers.utils.getAddress(ref));
     } catch {}
-  }, []);
+  }, [mounted]);
 
-  // Read campaign end from contract
+  // Read campaign end from contract (wait for mount)
   useEffect(() => {
-    if (!POG_NFT_ADDRESS || typeof window === 'undefined' || !window.ethereum) return;
+    if (!mounted || !POG_NFT_ADDRESS || typeof window === 'undefined' || !window.ethereum) return;
+    // [AUDIT FIX] M2: Cancellation flag to prevent setState on unmounted component
+    let cancelled = false;
     (async () => {
       try {
         const p = new ethers.providers.Web3Provider(window.ethereum);
         const c = new ethers.Contract(POG_NFT_ADDRESS, POG_ABI, p);
         const end = await c.endTime();
-        if (end.gt(0)) setCampaignEnd(end.toNumber());
-      } catch {}
+        if (!cancelled && end.gt(0)) setCampaignEnd(end.toNumber());
+      } catch (err) {
+        // [AUDIT FIX] M5: Log contract read failures for debugging
+        if (!cancelled) console.warn('Campaign endTime read failed:', err);
+      }
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [mounted]);
 
-  // Check if already minted
+  // Check if already minted (wait for mount)
   useEffect(() => {
-    if (!account || !POG_NFT_ADDRESS || typeof window === 'undefined' || !window.ethereum) return;
+    if (!mounted || !account || !POG_NFT_ADDRESS || typeof window === 'undefined' || !window.ethereum) return;
     let cancelled = false;
     (async () => {
       try {
@@ -203,10 +220,13 @@ export default function ProofOfGasCampaign() {
         if (!(await c.hasMinted(account))) return;
         const [bs, rb, tid] = await Promise.all([c.baseScores(account).then(Number), c.referralBonuses(account).then(Number), c.tokenOfOwner(account).then(Number)]);
         if (!cancelled) { setAlreadyClaimedData({ baseScore: bs, refBonus: rb, tokenId: tid }); setHasMintedState(true); setStep('claimed'); }
-      } catch {}
+      } catch (err) {
+        // [AUDIT FIX] M5: Log contract read failures for debugging
+        if (!cancelled) console.warn('hasMinted check failed:', err);
+      }
     })();
     return () => { cancelled = true; };
-  }, [account]);
+  }, [account, mounted]); // [AUDIT FIX] H1: include mounted so effect re-runs when mount completes
 
   // Auto-scroll terminal
   useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs.length]);
@@ -312,6 +332,12 @@ export default function ProofOfGasCampaign() {
   const isFailed = scanPhase === 'failed';
 
   return (
+    <>
+    <style jsx global>{`
+      @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+      @keyframes pogScanDown { 0%{top:-2px} 100%{top:100%} }
+      .scrollbar-hide::-webkit-scrollbar{display:none} .scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none;}
+    `}</style>
     <AnimatePresence>
       <motion.div
         key="pog-overlay"
@@ -471,14 +497,8 @@ export default function ProofOfGasCampaign() {
           </div>
         </motion.div>
       </motion.div>
-
-      {/* Inline keyframes */}
-      <style jsx global>{`
-        @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
-        @keyframes pogScanDown { 0%{top:-2px} 100%{top:100%} }
-        .scrollbar-hide::-webkit-scrollbar{display:none} .scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none;}
-      `}</style>
     </AnimatePresence>
+    </>
   );
 }
 

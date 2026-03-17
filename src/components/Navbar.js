@@ -187,7 +187,10 @@ export default function Navbar() {
         setAccount(accounts[0]);
         localStorage.setItem('isWalletConnected', 'true');
       }
-    } catch { toast.error('Wallet connection failed'); }
+    } catch (err) {
+      // [AUDIT FIX] M1: Don't show error toast when user deliberately cancels
+      if (err?.code !== 4001 && err?.code !== 'ACTION_REJECTED') toast.error('Wallet connection failed');
+    }
   };
 
   const disconnectWallet = () => {
@@ -205,7 +208,10 @@ export default function Navbar() {
         setAccount(accounts[0]);
         toast.success('Wallet switched');
       }
-    } catch { toast.error('Wallet switch failed'); }
+    } catch (err) {
+      // [AUDIT FIX] M1: Suppress user-cancelled switch
+      if (err?.code !== 4001 && err?.code !== 'ACTION_REJECTED') toast.error('Wallet switch failed');
+    }
   };
 
   useEffect(() => {

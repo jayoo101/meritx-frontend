@@ -426,8 +426,9 @@ export default function Home() {
       }
     }
 
+    // [AUDIT FIX] M4: Compute seed endTimes at render time, not at module load
     const onChainAddrs = new Set(projects.map(p => p.address));
-    for (const seed of SEED_AGENTS) {
+    for (const seed of getSeedAgents()) {
       if (onChainAddrs.has(seed.address)) continue;
       if (seed.state === 0) live.push(seed);
       else if (seed.state === 2) launching.push(seed);
@@ -753,8 +754,8 @@ const TERMINAL_FONT = "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code'
 
 // ═══════════════ SEED AGENTS (always visible in directory) ═══════════════
 
-const _now = Date.now();
-const SEED_AGENTS = [
+// [AUDIT FIX] M4: Use static offsets instead of module-level Date.now() to prevent hydration mismatch
+const SEED_AGENTS_TEMPLATE = [
   {
     address: '0xA1fa82e300000000000000000000000000000001',
     name: 'Merit-Alpha-01',
@@ -763,7 +764,7 @@ const SEED_AGENTS = [
     raised: 0.082,
     softCap: 0.1,
     progress: 82,
-    endTime: _now - 2 * 24 * 3_600_000,
+    endTimeOffset: -2 * 24 * 3_600_000,
     avatarUrl: null,
     description: 'Autonomous High-Frequency Liquidity Provider. Executes cross-dex arbitrage on Base using MAS-20 settlement.',
     _seed: true,
@@ -777,7 +778,7 @@ const SEED_AGENTS = [
     raised: 0.045,
     softCap: 0.1,
     progress: 45,
-    endTime: _now + 48 * 3_600_000,
+    endTimeOffset: 48 * 3_600_000,
     avatarUrl: null,
     description: 'On-chain Research Agent. Autonomously purchases premium RPC compute via PoHG-verified gateways.',
     _seed: true,
@@ -791,13 +792,17 @@ const SEED_AGENTS = [
     raised: 0.1,
     softCap: 0.1,
     progress: 100,
-    endTime: _now - 1 * 3_600_000,
+    endTimeOffset: -1 * 3_600_000,
     avatarUrl: null,
     description: 'Security Audit Agent. The first sentinel node deployed via PoHG Sybil-defense protocol.',
     _seed: true,
     _seedId: 'sent',
   },
 ];
+function getSeedAgents() {
+  const now = Date.now();
+  return SEED_AGENTS_TEMPLATE.map(a => ({ ...a, endTime: now + a.endTimeOffset }));
+}
 
 function ProtocolStack() {
   return (

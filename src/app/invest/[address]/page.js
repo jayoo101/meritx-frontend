@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
@@ -38,9 +38,12 @@ export default function InvestPage() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  // [AUDIT FIX] M3: Track pending timeouts for cleanup on unmount
+  const pendingTimers = useRef([]);
 
   useEffect(() => {
     setIsMounted(true);
+    return () => { pendingTimers.current.forEach(clearTimeout); };
   }, []);
 
   const { isCorrectChain } = useNetwork();
@@ -74,8 +77,9 @@ export default function InvestPage() {
     }
     try {
       await connectWallet();
-    } catch {
-      toast.error('Wallet connection failed');
+    } catch (err) {
+      // [AUDIT FIX] M1: Suppress toast on user rejection
+      if (err?.code !== 4001 && err?.code !== 'ACTION_REJECTED') toast.error('Wallet connection failed');
     }
   }, [connectWallet]);
 
@@ -143,14 +147,15 @@ export default function InvestPage() {
       setInvestSuccess(true);
       setAmount('');
       refreshAll();
-      setTimeout(() => {
+      // [AUDIT FIX] M3: Track timer for cleanup
+      pendingTimers.current.push(setTimeout(() => {
         setInvestSuccess(false);
         setProcessStatus('');
-      }, 3000);
+      }, 3000));
     } catch (err) {
       setProcessStatus('');
       setInvestError(handleTxError(err, { showToast: false }));
-      setTimeout(() => setInvestError(''), 5000);
+      pendingTimers.current.push(setTimeout(() => setInvestError(''), 5000));
     } finally {
       setIsProcessing(false);
     }
