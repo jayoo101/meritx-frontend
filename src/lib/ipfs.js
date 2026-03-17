@@ -1,22 +1,20 @@
-// Resilient IPFS gateway configuration.
-// Ordered by reliability under heavy traffic — public gateways that handle 429s
-// and rate limits are placed lower so they act as fallbacks, not primaries.
-const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
+// IPFS resolution strategy:
+// 1. Primary: our own /api/ipfs backend proxy (authenticated Pinata, no CORS, no 429)
+// 2. Fallback: public gateways (for edge cases where the proxy is unreachable)
 
-const GATEWAYS = [
-  'https://nftstorage.link',
+const PUBLIC_GATEWAYS = [
   'https://cloudflare-ipfs.com',
-  PINATA_GATEWAY,
   'https://ipfs.io',
   'https://dweb.link',
 ];
 
+const PROXY_TIMEOUT_MS = 6000;
 const GATEWAY_TIMEOUT_MS = 3000;
-const IPFS_TOTAL_TIMEOUT_MS = 5000;
+const TOTAL_TIMEOUT_MS = 8000;
 
 /**
  * Extract the raw CID (+ optional path) from any IPFS reference.
- * Handles: ipfs://CID, ipfs://CID/path, bare CID, full http(s) URLs (returned as-is).
+ * Returns null for plain http(s) URLs.
  */
 function extractCid(uri) {
   if (!uri || typeof uri !== 'string') return null;
@@ -26,19 +24,19 @@ function extractCid(uri) {
 }
 
 /**
- * Convert an ipfs:// URI to an HTTP gateway URL.
- * Defaults to the fastest public gateway (nftstorage.link).
+ * Convert an ipfs:// URI to an HTTP URL via our backend proxy.
+ * Falls through to the raw URI for non-IPFS http links.
  */
-export function ipfsToHttp(uri, gateway = GATEWAYS[0]) {
+export function ipfsToHttp(uri) {
   if (!uri || typeof uri !== 'string') return null;
   const cid = extractCid(uri);
   if (!cid) return uri.startsWith('http') ? uri : null;
-  return `${gateway}/ipfs/${cid}`;
+  return `/api/ipfs?cid=${encodeURIComponent(cid)}`;
 }
 
 /**
- * Returns an ordered array of gateway URLs for a given IPFS URI.
- * Useful for <img> elements that need to try multiple sources on error.
+ * Returns an ordered array of URLs to try for a given IPFS URI.
+ * Proxy first, then public gateways as fallback.
  */
 export function ipfsGatewayUrls(uri) {
   const cid = extractCid(uri);
@@ -46,17 +44,20 @@ export function ipfsGatewayUrls(uri) {
     if (uri && typeof uri === 'string' && uri.startsWith('http')) return [uri];
     return [];
   }
-  return GATEWAYS.map(gw => `${gw}/ipfs/${cid}`);
+  return [
+    `/api/ipfs?cid=${encodeURIComponent(cid)}`,
+    ...PUBLIC_GATEWAYS.map(gw => `${gw}/ipfs/${cid}`),
+  ];
 }
 
-function fetchWithTimeout(url, ms = GATEWAY_TIMEOUT_MS) {
+function fetchWithTimeout(url, ms) {
   return fetch(url, { signal: AbortSignal.timeout(ms), cache: 'force-cache' });
 }
 
 /**
- * Race multiple IPFS gateways via Promise.any — returns the first successful JSON response.
- * Wrapped in an outer timeout so the entire operation never exceeds IPFS_TOTAL_TIMEOUT_MS.
- * Falls back to null if all gateways fail or timeout.
+ * Fetch IPFS JSON metadata. Tries the backend proxy first (fast, authenticated,
+ * no CORS). If the proxy fails, races public gateways as fallback.
+ * Returns parsed JSON or null.
  */
 export async function fetchIPFSMetadata(ipfsURI) {
   if (!ipfsURI || typeof ipfsURI !== 'string') return null;
@@ -64,20 +65,32 @@ export async function fetchIPFSMetadata(ipfsURI) {
   if (!cid) return null;
 
   try {
-    const res = await Promise.race([
-      Promise.any(
-        GATEWAYS.map(gw =>
-          fetchWithTimeout(`${gw}/ipfs/${cid}`).then(r => {
-            if (!r.ok) throw new Error(`${gw} ${r.status}`);
-            return r;
-          })
-        )
-      ),
+    const result = await Promise.race([
+      (async () => {
+        // Try proxy first
+        try {
+          const proxyRes = await fetchWithTimeout(
+            `/api/ipfs?cid=${encodeURIComponent(cid)}`,
+            PROXY_TIMEOUT_MS
+          );
+          if (proxyRes.ok) return proxyRes;
+        } catch { /* proxy failed, fall through */ }
+
+        // Fallback: race public gateways
+        return Promise.any(
+          PUBLIC_GATEWAYS.map(gw =>
+            fetchWithTimeout(`${gw}/ipfs/${cid}`, GATEWAY_TIMEOUT_MS).then(r => {
+              if (!r.ok) throw new Error(`${gw} ${r.status}`);
+              return r;
+            })
+          )
+        );
+      })(),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('IPFS total timeout')), IPFS_TOTAL_TIMEOUT_MS)
+        setTimeout(() => reject(new Error('IPFS total timeout')), TOTAL_TIMEOUT_MS)
       ),
     ]);
-    return await res.json();
+    return await result.json();
   } catch {
     return null;
   }

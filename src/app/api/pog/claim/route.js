@@ -77,17 +77,32 @@ async function fetchGasDataFromMultichains(userAddress) {
 }
 
 export async function POST(request) {
-  // [AUDIT FIX] M8: Validate at least one real RPC is configured
-  const hasValidRpc = Object.values(CHAIN_RPCS).some(url => url && !url.includes('YOUR_KEY'));
+  const missingRpcs = Object.entries(CHAIN_RPCS)
+    .filter(([, url]) => !url || url.includes('YOUR_KEY'))
+    .map(([chain]) => chain);
+  const hasValidRpc = missingRpcs.length < Object.keys(CHAIN_RPCS).length;
   if (!hasValidRpc) {
+    console.error(
+      `[PoG 503] ALL RPC env vars are missing or contain placeholders. Missing: ${
+        missingRpcs.map(c => `POG_RPC_${c.toUpperCase()}`).join(', ')
+      }`
+    );
     return NextResponse.json(
       { success: false, error: 'Multi-chain RPC endpoints not configured. Service temporarily unavailable.' },
       { status: 503 }
     );
   }
+  if (missingRpcs.length > 0) {
+    console.warn(
+      `[PoG] Some RPC env vars missing (chains will return 0 gas): ${
+        missingRpcs.map(c => `POG_RPC_${c.toUpperCase()}`).join(', ')
+      }`
+    );
+  }
 
   const pogPrivateKey = process.env.BACKEND_PRIVATE_KEY_FOR_POG;
   if (!pogPrivateKey) {
+    console.error('[PoG 500] Missing env: BACKEND_PRIVATE_KEY_FOR_POG');
     return NextResponse.json(
       { success: false, error: 'POG signer key not configured on server' },
       { status: 500 }
@@ -142,6 +157,7 @@ export async function POST(request) {
 
   const pogContractAddress = process.env.NEXT_PUBLIC_POG_NFT_ADDRESS;
   if (!pogContractAddress || !ethers.utils.isAddress(pogContractAddress)) {
+    console.error(`[PoG 500] Missing or invalid env: NEXT_PUBLIC_POG_NFT_ADDRESS = "${pogContractAddress || ''}"`);
     return NextResponse.json(
       { success: false, error: 'POG contract address not configured on server' },
       { status: 500 }
