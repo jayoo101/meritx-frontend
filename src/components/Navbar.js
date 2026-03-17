@@ -447,6 +447,13 @@ export default function Navbar() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.__openMeritDrop?.()}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-all"
+            >
+              <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400" /></span>
+              Merit Drop
+            </button>
             <span className="hidden sm:inline text-[9px] text-zinc-600 font-mono tracking-wider">{CHAIN_NAME}</span>
             {account ? (
               <button onClick={openDrawer} className="group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:border-blue-500/40 transition-all text-xs font-mono">

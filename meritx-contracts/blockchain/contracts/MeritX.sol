@@ -6,12 +6,18 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 // ---------- External Interfaces ----------
 
+interface IUniswapV3Factory {
+    function getPool(address tokenA, address tokenB, uint24 fee)
+        external view returns (address pool);
+}
+
 interface IUniswapV3Pool {
     function observe(uint32[] calldata)
         external view returns (int56[] memory, uint160[] memory);
     function slot0()
         external view returns (uint160, int24, uint16, uint16, uint16, uint8, bool);
     function increaseObservationCardinalityNext(uint16) external;
+    function initialize(uint160 sqrtPriceX96) external;
 }
 
 interface IWETH {
@@ -33,6 +39,7 @@ interface INonfungiblePositionManager {
         uint256 tokenId; address recipient;
         uint128 amount0Max; uint128 amount1Max;
     }
+    function factory() external view returns (address);
     function createAndInitializePoolIfNecessary(
         address, address, uint24, uint160
     ) external payable returns (address);
@@ -120,7 +127,7 @@ contract MeritXFund {
     uint256 public constant RAISE_DURATION     = 5 minutes;
     uint256 public constant PLATFORM_FEE_PCT   = 5;
     uint256 public constant LAUNCH_WINDOW      = 30 days;
-    uint256 public constant PRE_LAUNCH_NOTICE  = 6 hours;
+    uint256 public constant PRE_LAUNCH_NOTICE  = 1 minutes; // [TESTNET ONLY] REVERT TO 6 hours FOR MAINNET
     uint256 public constant LAUNCH_EXPIRATION  = 24 hours;
     uint256 public constant RETAIL_POOL        = 21_000_000e18;
     uint256 public constant INITIAL_SUPPLY     = 40_950_000e18;
@@ -138,6 +145,7 @@ contract MeritXFund {
     uint256 public raiseEndTime;
     bool    public isFinalized;
     mapping(address => uint256) public contributions;
+    mapping(address => uint256) public nonces;
 
     // -- Anti-stealth launch --
     uint256 public launchAnnouncementTime;
@@ -187,9 +195,10 @@ contract MeritXFund {
         require(msg.value > 0, "!val");
         require(_maxAlloc <= MAX_ALLOCATION, "!ceil");
         
-        bytes32 h = keccak256(abi.encodePacked(msg.sender, _maxAlloc, address(this), block.chainid));
+        bytes32 h = keccak256(abi.encodePacked(msg.sender, _maxAlloc, nonces[msg.sender], address(this), block.chainid));
         require(_recover(h, _sig) == backendSigner, "!sig");
-        
+        nonces[msg.sender]++;
+
         require(contributions[msg.sender] + msg.value <= _maxAlloc, "!alloc");
         contributions[msg.sender] += msg.value;
         totalRaised += msg.value;
@@ -208,6 +217,11 @@ contract MeritXFund {
         }
         if (v < 27) v += 27;
         require(v == 27 || v == 28, "!v");
+        // [AUDIT FIX] EIP-2 malleability guard: reject high-s signatures
+        require(
+            uint256(s) <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
+            "!s-malleable"
+        );
         address a = ecrecover(eh, v, r, s);
         require(a != address(0), "!rec");
         return a;
@@ -224,14 +238,19 @@ contract MeritXFund {
 
     // ---- Claims ----
 
+    // [AUDIT FIX] CEI pattern: state zeroed before external call — reentrancy-safe
     function claimTokens() external {
         require(currentState() == State.Ready_For_DEX, "!ready");
         uint256 a = contributions[msg.sender];
         require(a > 0, "!contrib");
-        contributions[msg.sender] = 0;
-        projectToken.transfer(msg.sender, (a * RETAIL_POOL) / totalRaised);
+        contributions[msg.sender] = 0;                                  // Effect
+        projectToken.transfer(msg.sender, (a * RETAIL_POOL) / totalRaised); // Interaction
     }
 
+    // [AUDIT FIX] CEI pattern: state zeroed before external call — reentrancy-safe
+    // Refund is ALWAYS available if: (a) raise failed, (b) owner idle past LAUNCH_WINDOW,
+    // or (c) owner announced but failed to finalize within LAUNCH_EXPIRATION.
+    // No owner action can permanently lock contributor funds.
     function claimRefund() external {
         State s = currentState();
         require(
@@ -245,8 +264,8 @@ contract MeritXFund {
         );
         uint256 a = contributions[msg.sender];
         require(a > 0, "!funds");
-        contributions[msg.sender] = 0;
-        (bool ok, ) = payable(msg.sender).call{value: a}("");
+        contributions[msg.sender] = 0;                     // Effect
+        (bool ok, ) = payable(msg.sender).call{value: a}(""); // Interaction
         require(ok, "!refund");
     }
 
@@ -283,87 +302,89 @@ contract MeritXFund {
         poolCreationTime = block.timestamp;
         lastMintTime = block.timestamp;
 
+        // [AUDIT FIX] Removed unchecked — checked arithmetic prevents silent underflow
         uint256 raised = totalRaised;
-        uint256 fee;
-        uint256 ethForPool;
-        unchecked {
-            fee        = (raised * PLATFORM_FEE_PCT) / 100;
-            ethForPool = raised - fee;
-        }
+        uint256 fee        = (raised * PLATFORM_FEE_PCT) / 100;
+        uint256 ethForPool = raised - fee;
         uint256 tokensForPool = LP_POOL;
 
         // Step 1: Wrap ETH → WETH
         IWETH(weth).deposit{value: ethForPool}();
-        require(
-            IWETH(weth).balanceOf(address(this)) >= ethForPool,
-            "MeritX: WETH deposit failed"
-        );
 
-        // Step 2: Approve PositionManager to spend both tokens
-        require(
-            IWETH(weth).approve(positionManager, ethForPool),
-            "MeritX: WETH approve failed"
-        );
-        require(
-            projectToken.approve(positionManager, tokensForPool),
-            "MeritX: token approve failed"
-        );
-
-        // Step 3: Determine Uniswap V3 token ordering (t0 < t1)
+        // Step 2: Determine Uniswap V3 token ordering (t0 < t1)
         bool tkn0 = address(projectToken) < weth;
         address t0 = tkn0 ? address(projectToken) : weth;
         address t1 = tkn0 ? weth : address(projectToken);
-        uint256 a0 = tkn0 ? tokensForPool : ethForPool;
-        uint256 a1 = tkn0 ? ethForPool    : tokensForPool;
 
-        // Step 4: Compute sqrtPriceX96 = sqrt(a1/a0) * 2^96
-        uint256 sqrtA0 = Math.sqrt(a0);
-        uint256 sqrtA1 = Math.sqrt(a1);
-        require(sqrtA0 > 0, "MeritX: sqrt(a0) is zero");
-        uint160 sqrtPrice = uint160((sqrtA1 << 96) / sqrtA0);
-        require(sqrtPrice > 4295128739, "MeritX: sqrtPrice below V3 minimum");
+        INonfungiblePositionManager pm = INonfungiblePositionManager(positionManager);
 
-        // Step 5: Create pool and initialize (most expensive step: ~1.5M gas)
-        INonfungiblePositionManager pm =
-            INonfungiblePositionManager(positionManager);
-        address pool = pm.createAndInitializePoolIfNecessary(
-            t0, t1, FEE_TIER, sqrtPrice
-        );
-        require(pool != address(0), "MeritX: pool creation failed");
+        // Step 3–4: Idempotent pool init (scoped to avoid stack-too-deep)
+        {
+            uint256 sqrtA0 = Math.sqrt(tkn0 ? tokensForPool : ethForPool);
+            uint256 sqrtA1 = Math.sqrt(tkn0 ? ethForPool    : tokensForPool);
+            require(sqrtA0 > 0, "MeritX: sqrt(a0) is zero");
+            uint160 sqrtPrice = uint160((sqrtA1 << 96) / sqrtA0);
+            require(sqrtPrice > 4295128739, "MeritX: sqrtPrice below V3 minimum");
 
-        // Step 6: Gas safety gate — prevent half-executed reverts in deep V3 calls
-        require(gasleft() > 500_000, "MeritX: insufficient gas for LP mint");
+            address existing = IUniswapV3Factory(pm.factory()).getPool(t0, t1, FEE_TIER);
+            if (existing == address(0)) {
+                address created = pm.createAndInitializePoolIfNecessary(t0, t1, FEE_TIER, sqrtPrice);
+                require(created != address(0), "MeritX: pool creation failed");
+            } else {
+                (uint160 curSqrt,,,,,,) = IUniswapV3Pool(existing).slot0();
+                if (curSqrt == 0) {
+                    IUniswapV3Pool(existing).initialize(sqrtPrice);
+                } else {
+                    require(curSqrt == sqrtPrice, "MeritX: Pool hijacked with wrong price");
+                }
+            }
+        }
 
-        // Step 7: Mint LP position
-        (uint256 tokenId,,,) = pm.mint(
-            INonfungiblePositionManager.MintParams({
-                token0: t0,
-                token1: t1,
-                fee: FEE_TIER,
-                tickLower: TICK_LOW,
-                tickUpper: TICK_HIGH,
-                amount0Desired: a0,
-                amount1Desired: a1,
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: address(this),
-                deadline: block.timestamp
-            })
-        );
+        // Step 5: Approve PositionManager using actual WETH balance for resilience
+        uint256 wethBal = IWETH(weth).balanceOf(address(this));
+        require(wethBal > 0, "MeritX: zero WETH after deposit");
+        IWETH(weth).approve(positionManager, 0);
+        require(IWETH(weth).approve(positionManager, wethBal), "MeritX: WETH approve failed");
+        projectToken.approve(positionManager, 0);
+        require(projectToken.approve(positionManager, tokensForPool), "MeritX: token approve failed");
+
+        // Step 6: Gas safety gate (900k for Base Sepolia 63/64 forwarding rule)
+        require(gasleft() > 900_000, "MeritX: insufficient gas for LP mint");
+
+        // Step 7: Mint LP position (zero slippage — first-ever liquidity)
+        uint256 tokenId;
+        {
+            uint256 a0 = tkn0 ? tokensForPool : wethBal;
+            uint256 a1 = tkn0 ? wethBal       : tokensForPool;
+            (tokenId,,,) = pm.mint(
+                INonfungiblePositionManager.MintParams({
+                    token0: t0,  token1: t1,  fee: FEE_TIER,
+                    tickLower: TICK_LOW,  tickUpper: TICK_HIGH,
+                    amount0Desired: a0,  amount1Desired: a1,
+                    amount0Min: 0,  amount1Min: 0,
+                    recipient: address(this),  deadline: block.timestamp
+                })
+            );
+        }
         require(tokenId > 0, "MeritX: LP mint returned zero tokenId");
 
-        lpTokenId   = tokenId;
-        uniswapPool = pool;
+        lpTokenId = tokenId;
+        uniswapPool = IUniswapV3Factory(pm.factory()).getPool(t0, t1, FEE_TIER);
         {
-            (, int24 tick,,,,,) = IUniswapV3Pool(pool).slot0();
+            (, int24 tick,,,,,) = IUniswapV3Pool(uniswapPool).slot0();
             initialTick = tick;
         }
 
-        // Step 8: Send platform fee
-        (bool f1, ) = payable(platformTreasury).call{value: fee}("");
-        require(f1, "MeritX: treasury fee transfer failed");
+        // Step 8: Bootstrap TWAP oracle (prevents "OLD" revert in getTWAP)
+        IUniswapV3Pool(uniswapPool).increaseObservationCardinalityNext(150);
 
-        // Step 9: Sweep leftover WETH dust (safe — not used for user claims)
+        // Step 9: Send platform fee
+        {
+            (bool f1, ) = payable(platformTreasury).call{value: fee}("");
+            require(f1, "MeritX: treasury fee failed");
+        }
+
+        // Step 9: Sweep leftover WETH dust
         uint256 leftoverWETH = IWETH(weth).balanceOf(address(this));
         if (leftoverWETH > 0) {
             IWETH(weth).transfer(platformTreasury, leftoverWETH);
@@ -395,6 +416,7 @@ contract MeritXFund {
         uint32 timeElapsed = uint32(block.timestamp - poolCreationTime);
         if (timeElapsed == 0) return initialTick;
         uint32 interval = timeElapsed < TWAP_INTERVAL ? timeElapsed : TWAP_INTERVAL;
+        if (interval == 0) return initialTick;
 
         uint32[] memory secs = new uint32[](2);
         secs[0] = interval;
@@ -406,7 +428,10 @@ contract MeritXFund {
     function calculateTargetSupply(int24 tick) public view returns (uint256) {
         int256 d = int256(tick) - int256(initialTick);
         if (d <= 0) return INITIAL_SUPPLY;
-        uint256 e = (EXPONENT_015 * uint256(d) * LN_1_0001) / 1e18;
+        // [AUDIT FIX] Cap tick delta to prevent PRBMath exp() overflow revert
+        // 120000 ticks ≈ ~148,000x price move — beyond this, inflation is capped
+        uint256 du = uint256(d) > 120_000 ? 120_000 : uint256(d);
+        uint256 e = (EXPONENT_015 * du * LN_1_0001) / 1e18;
         return ud(INITIAL_SUPPLY).mul(ud(e).exp()).unwrap();
     }
 
@@ -436,8 +461,12 @@ contract MeritXFactory {
 
     uint256 public constant LISTING_FEE = 0.01 ether;
 
-    // Fixed warning: Unused parameter removed or checked.
+    // [AUDIT FIX] Zero-address guards on immutable constructor params
     constructor(address _signer, address _pm, address _weth, address _treasury) {
+        require(_signer   != address(0), "!signer");
+        require(_pm       != address(0), "!pm");
+        require(_weth     != address(0), "!weth");
+        require(_treasury != address(0), "!treasury");
         platformTreasury = _treasury;
         backendSigner    = _signer;
         positionManager  = _pm;

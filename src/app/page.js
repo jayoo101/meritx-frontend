@@ -9,6 +9,7 @@ import { FileText, Github } from 'lucide-react';
 import { FACTORY_ADDRESS, RPC_URL, CHAIN_ID } from '@/lib/constants';
 import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
 import { useAgentMetadata } from '@/hooks/useAgentMetadata';
+import ProofOfGasCampaign from '@/components/ProofOfGasCampaign';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -720,6 +721,7 @@ export default function Home() {
           </div>
         </footer>
       </main>
+      <ProofOfGasCampaign />
     </div>
   );
 }
@@ -824,3 +826,4 @@ function ProtocolStack() {
     </div>
   );
 }
+
