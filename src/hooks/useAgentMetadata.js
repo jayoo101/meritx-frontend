@@ -1,12 +1,12 @@
 'use client';
 import useSWR from 'swr';
-import { fetchIPFSMetadata, ipfsToHttp } from '@/lib/ipfs';
+import { fetchIPFSMetadata } from '@/lib/ipfs';
 
 const fetcher = async (ipfsURI) => {
   const meta = await fetchIPFSMetadata(ipfsURI);
   if (!meta) return null;
   return {
-    avatarUrl: meta.image ? ipfsToHttp(meta.image) : null,
+    avatarUrl: meta.image || null,
     description: meta.description || '',
     socials: meta.socials || null,
     skillEndpoint: meta.skillEndpoint || null,

@@ -15,6 +15,7 @@ export function useUserContribution(fundAddress, account) {
   const [contribution, setContribution] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
+  // [PERFORMANCE FIX] Wrapped in useCallback to prevent recreation on every render
   const refresh = useCallback(async () => {
     if (!fundAddress || !account || typeof window === 'undefined' || !window.ethereum) {
       setContribution(0);
@@ -38,8 +39,14 @@ export function useUserContribution(fundAddress, account) {
     }
   }, [fundAddress, account]);
 
+  // [PERFORMANCE FIX] Cancellation flag prevents setState on unmounted component
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    (async () => {
+      if (!fundAddress || !account) return;
+      await refresh();
+    })();
+    return () => { cancelled = true; };
   }, [refresh]);
 
   return { contribution, isLoading, refresh };

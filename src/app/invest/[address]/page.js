@@ -19,6 +19,7 @@ import { fmtEth, truncAddr } from '@/lib/fmt';
 import { FUND_ABI } from '@/lib/abis';
 import { requireWallet, getSignerContract, handleTxError } from '@/lib/web3';
 import InflationStats from '@/components/InflationStats';
+import IpfsImage from '@/components/IpfsImage';
 
 export default function InvestPage() {
   const params = useParams();
@@ -489,30 +490,12 @@ export default function InvestPage() {
 }
 
 function InvestAvatar({ src, fallback }) {
-  const [status, setStatus] = useState('loading');
-
-  if (!src) {
-    return <span className="text-4xl md:text-5xl font-black text-blue-500">{fallback}</span>;
-  }
-
   return (
-    <>
-      {status === 'loading' && (
-        <div className="absolute inset-0 bg-zinc-800 animate-pulse rounded-xl" />
-      )}
-      {status === 'error' ? (
-        <span className="text-4xl md:text-5xl font-black text-blue-500">{fallback}</span>
-      ) : (
-        <img
-          src={src}
-          alt={`${fallback} avatar`}
-          className="w-full h-full object-cover"
-          onLoad={() => setStatus('loaded')}
-          onError={() => setStatus('error')}
-          style={status === 'loading' ? { opacity: 0, position: 'absolute' } : undefined}
-        />
-      )}
-    </>
+    <IpfsImage
+      src={src}
+      alt={`${fallback} avatar`}
+      fallback={<span className="text-4xl md:text-5xl font-black text-blue-500">{fallback}</span>}
+    />
   );
 }
 

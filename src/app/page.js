@@ -10,6 +10,7 @@ import { FACTORY_ADDRESS, RPC_URL, CHAIN_ID } from '@/lib/constants';
 import { FACTORY_ABI, FUND_ABI, TOKEN_ABI } from '@/lib/abis';
 import { useAgentMetadata } from '@/hooks/useAgentMetadata';
 import ProofOfGasCampaign from '@/components/ProofOfGasCampaign';
+import IpfsImage from '@/components/IpfsImage';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -48,14 +49,11 @@ function projectsEqual(a, b) {
 }
 
 async function _fetchProjects() {
-  console.time('[MeritX] RPC_TOTAL');
   const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, _provider);
   const mc = new ethers.Contract(MULTICALL3, MC_ABI, _provider);
 
-  console.time('[MeritX] RPC_getAllProjects');
   const addresses = await factory.getAllProjects();
-  console.timeEnd('[MeritX] RPC_getAllProjects');
-  if (addresses.length === 0) { console.timeEnd('[MeritX] RPC_TOTAL'); return []; }
+  if (addresses.length === 0) return [];
 
   // Round 1 — batch ALL fund reads into a single RPC call
   const fundCalls = addresses.flatMap(addr =>
@@ -65,9 +63,7 @@ async function _fetchProjects() {
       callData: fundIface.encodeFunctionData(fn),
     }))
   );
-  console.time('[MeritX] RPC_multicall_funds');
   const r1 = await mc.aggregate3(fundCalls);
-  console.timeEnd('[MeritX] RPC_multicall_funds');
 
   const stride = FUND_READS.length;
   const fundSlices = [];
@@ -113,9 +109,7 @@ async function _fetchProjects() {
     );
   });
 
-  console.time('[MeritX] RPC_multicall_tokens');
   const r2 = tokenCalls.length > 0 ? await mc.aggregate3(tokenCalls) : [];
-  console.timeEnd('[MeritX] RPC_multicall_tokens');
 
   const nameMap = new Map();
   const symMap  = new Map();
@@ -141,7 +135,6 @@ async function _fetchProjects() {
     };
   });
 
-  console.timeEnd('[MeritX] RPC_TOTAL');
   return projects.filter(Boolean);
 }
 
@@ -236,26 +229,15 @@ class ProjectErrorBoundary extends Component {
   }
 }
 
-function AvatarImg({ src, alt, className = 'w-full h-full object-cover' }) {
-  const [status, setStatus] = useState('loading');
+// AvatarImg now delegates to the resilient IpfsImage component
+// which auto-cycles through multiple IPFS gateways on 429/504 errors.
+function AvatarImg({ src, alt }) {
   return (
-    <>
-      {status === 'loading' && (
-        <div className="absolute inset-0 bg-zinc-800 animate-pulse rounded-xl" />
-      )}
-      {status === 'error' ? (
-        <span className="text-2xl font-black text-blue-500">{(alt || '?').charAt(0)}</span>
-      ) : (
-        <img
-          src={src}
-          alt={alt}
-          className={className}
-          onLoad={() => setStatus('loaded')}
-          onError={() => setStatus('error')}
-          style={status === 'loading' ? { opacity: 0, position: 'absolute' } : undefined}
-        />
-      )}
-    </>
+    <IpfsImage
+      src={src}
+      alt={alt}
+      fallback={<span className="text-2xl font-black text-blue-500">{(alt || '?').charAt(0)}</span>}
+    />
   );
 }
 

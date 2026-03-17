@@ -10,9 +10,6 @@ import { useWallet } from '@/hooks/useWallet';
 import { FACTORY_ABI } from '@/lib/abis';
 import { getSignerContract } from '@/lib/web3';
 
-// [AUDIT FIX] C2: Removed NEXT_PUBLIC_PINATA_JWT — uploads now go through /api/upload
-const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
-
 const PROTOCOL_RULES = [
   { key: 'fee', label: 'Instantiation Fee', value: '0.01 ETH' },
   { key: 'soft', label: 'Soft Cap', value: '15 ETH (24h limit)' },

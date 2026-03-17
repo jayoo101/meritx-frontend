@@ -3,22 +3,28 @@
 import { useCallback } from 'react';
 import useSWR from 'swr';
 import { ethers } from 'ethers';
-import { RPC_URL } from '@/lib/constants';
+import { CHAIN_ID, RPC_URL } from '@/lib/constants';
 import { FUND_ABI, TOKEN_ABI } from '@/lib/abis';
-import { ipfsToHttp, fetchIPFSMetadata } from '@/lib/ipfs';
+import { fetchIPFSMetadata } from '@/lib/ipfs';
 
-/**
- * Fetches all MeritX Fund contract state (read-only, no wallet required).
- * Uses JsonRpcProvider for public reads.
- */
+// [PERFORMANCE FIX] Reuse a single StaticJsonRpcProvider with skipFetchSetup
+// to avoid a redundant eth_chainId handshake on every poll cycle.
+const _provider = new ethers.providers.StaticJsonRpcProvider(
+  { url: RPC_URL, skipFetchSetup: true },
+  CHAIN_ID
+);
+
+// [PERFORMANCE FIX] Outer timeout so a stalled RPC doesn't hang the page indefinitely.
+const RPC_TIMEOUT_MS = 8000;
+
 async function fetchFundData(address) {
   if (!address || !ethers.utils.isAddress(address)) {
     throw new Error('Invalid fund address');
   }
 
-  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-  const fund = new ethers.Contract(address, FUND_ABI, provider);
+  const fund = new ethers.Contract(address, FUND_ABI, _provider);
 
+  // Round 1 — batch all fund-level reads in a single Promise.all
   const [
     tokenAddr,
     totalRaised,
@@ -45,21 +51,28 @@ async function fetchFundData(address) {
     fund.ipfsURI().catch(() => ''),
   ]);
 
-  const token = new ethers.Contract(tokenAddr, TOKEN_ABI, provider);
-  const [name, symbol] = await Promise.all([token.name(), token.symbol()]);
+  // [PERFORMANCE FIX] Round 2 — token name/symbol + IPFS metadata are independent;
+  // fetch them in parallel instead of sequentially.
+  const token = new ethers.Contract(tokenAddr, TOKEN_ABI, _provider);
+
+  const ipfsPromise = ipfsURI
+    ? fetchIPFSMetadata(ipfsURI).catch(() => null)
+    : Promise.resolve(null);
+
+  const [[name, symbol], meta] = await Promise.all([
+    Promise.all([token.name(), token.symbol()]),
+    ipfsPromise,
+  ]);
 
   let avatarUrl = null;
   let description = '';
   let socials = {};
   let skillEndpoint = '';
-  if (ipfsURI) {
-    const meta = await fetchIPFSMetadata(ipfsURI);
-    if (meta) {
-      avatarUrl = meta.image ? ipfsToHttp(meta.image) : null;
-      description = meta.description || '';
-      socials = meta.socials || {};
-      skillEndpoint = meta.skillEndpoint || '';
-    }
+  if (meta) {
+    avatarUrl = meta.image || null;
+    description = meta.description || '';
+    socials = meta.socials || {};
+    skillEndpoint = meta.skillEndpoint || '';
   }
 
   const endSec = Number(raiseEndTime);
@@ -95,6 +108,16 @@ async function fetchFundData(address) {
   };
 }
 
+// [PERFORMANCE FIX] Race the entire fetch against a timeout to prevent indefinite hangs.
+async function fetchFundDataWithTimeout(address) {
+  return Promise.race([
+    fetchFundData(address),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('RPC timeout — Base Sepolia did not respond within 8s')), RPC_TIMEOUT_MS)
+    ),
+  ]);
+}
+
 /**
  * Hook: Fetch MeritX Fund contract data with SWR (caching, revalidation).
  * @param {string} address - Fund contract address
@@ -105,7 +128,7 @@ export function useFundData(address) {
 
   const { data, error, isLoading, mutate } = useSWR(
     key,
-    () => fetchFundData(address),
+    () => fetchFundDataWithTimeout(address),
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
